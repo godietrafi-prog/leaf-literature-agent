@@ -18,7 +18,24 @@ streamlit run dashboard/app.py
 Opens at http://localhost:8501. Tabs: **Overview** (cross-study purity/yield), **Corpus**
 (filter/search + per-paper detail), **AI / ML methods** (ML/DL/digital-twin precedents in
 analogous systems, each card stating why it transfers to leaf-protein purification), **Topic
-coverage**. Sidebar toggles English/Hebrew and a *Refresh from DB* button.
+coverage**. Sidebar includes a *Refresh from DB* button.
+
+## Add new PDFs without command-line work
+Drop new article PDFs into:
+
+```text
+inbox/pdfs/
+```
+
+Then run one of the BAT files from Windows Explorer:
+
+- `run_ingest_once.bat` — ingest whatever PDFs are waiting, commit the updated DB/mapping,
+  and push to GitHub.
+- `run_ingest_watch.bat` — keep checking `inbox/pdfs/` every 5 minutes. Leave this running
+  on the lab machine for a low-maintenance drop-folder workflow.
+
+The automation moves PDFs into the local article store, updates `db/leaf_lit.db` and
+`db/pdf_sources.json`, and marks auto-extracted values for review in the dashboard.
 
 ## Share the live app with the team (a real link)
 Streamlit needs a host. Options, cheapest first:
