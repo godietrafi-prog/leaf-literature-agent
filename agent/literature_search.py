@@ -49,6 +49,25 @@ ALL_SOURCES = ("openalex", "crossref", "europepmc", "semanticscholar")
 sys.path.insert(0, str(HERE))
 import auto_ingest  # noqa: E402
 
+
+def load_local_env() -> None:
+    """Load ROOT/.env without adding a dependency on python-dotenv.
+
+    Existing process env wins. The local .env file is gitignored.
+    """
+    env_path = ROOT / ".env"
+    if not env_path.exists():
+        return
+    for raw in env_path.read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        os.environ.setdefault(key.strip(), value.strip().strip('"').strip("'"))
+
+
+load_local_env()
+
 SEARCH_QUERIES = {
     "lox_sensory": [
         "leaf protein extraction lipoxygenase off flavor",
@@ -101,8 +120,9 @@ def request_json(url: str, timeout: int = 30, retries: int = 3, headers: dict | 
 
 
 # Optional free Semantic Scholar API key (https://www.semanticscholar.org/product/api)
-# lifts the keyless-pool 429s on the search endpoint. Set env LEAF_S2_API_KEY.
-S2_API_KEY = os.environ.get("LEAF_S2_API_KEY", "").strip()
+# lifts the keyless-pool 429s on the search endpoint. Set LEAF_S2_API_KEY or
+# S2_API_KEY in env / ROOT/.env.
+S2_API_KEY = (os.environ.get("LEAF_S2_API_KEY") or os.environ.get("S2_API_KEY") or "").strip()
 
 
 def doi_clean(raw: str | None) -> str | None:

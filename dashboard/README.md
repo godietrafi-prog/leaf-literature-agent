@@ -65,9 +65,8 @@ shows what needs manual access.
 - **Semantic Scholar rate limits.** The keyless *search* endpoint returns HTTP 429 under
   load (the search agent retries with backoff, then skips S2 for that query — the other
   three sources still run, so nothing breaks). For reliable S2 search, get a **free API key**
-  (https://www.semanticscholar.org/product/api) and set `LEAF_S2_API_KEY=...`. (The poster
-  project avoids 429s because it calls the lightly-throttled author-by-ID endpoint, not the
-  heavily-throttled keyword-search endpoint this agent needs.)
+  (https://www.semanticscholar.org/product/api) and store it locally in `.env` as
+  `LEAF_S2_API_KEY=...`. `.env` is gitignored and must not be committed.
 
 ## Share the live app with the team (a real link)
 Streamlit needs a host. Options, cheapest first:
