@@ -12,3 +12,4 @@ db/pdf_text_cache/
 # Local Streamlit/runtime files.
 .streamlit/secrets.toml
 .env
+swagger.json

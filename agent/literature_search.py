@@ -1,10 +1,21 @@
 #!/usr/bin/env python3
-"""Scheduled literature search for the Leaf Literature Agent.
+"""Scheduled multi-source literature search for the Leaf Literature Agent.
 
-Uses OpenAlex because it is open, DOI-centric, and usually exposes an OA PDF URL
-when one is known. New records are inserted conservatively:
+Queries several open scholarly APIs, normalises every hit into one record shape,
+de-duplicates by DOI (across sources, the run, and the existing DB), then inserts
+conservatively:
   * OA PDF found  -> download, extract text, add numeric rows as unverified.
   * no PDF found  -> add abstract-level paper + access_queue row.
+
+Sources (all keyless / public):
+  * openalex        — DOI-centric, good OA-URL coverage.
+  * crossref        — broad metadata + publisher PDF links.
+  * europepmc       — biomedical/PubMed + Open-Access full-text URLs.
+  * semanticscholar — extra coverage + openAccessPdf field (rate-limited w/o key).
+  * unpaywall       — NOT a search source; resolves an OA PDF for a DOI that the
+                      search sources returned without one.
+
+Only `stdlib` is used (urllib) so the deployed app needs no extra dependency.
 """
 from __future__ import annotations
 
@@ -19,7 +30,7 @@ import time
 from datetime import date, timedelta
 from pathlib import Path
 from urllib.error import HTTPError, URLError
-from urllib.parse import urlencode
+from urllib.parse import quote, urlencode
 from urllib.request import Request, urlopen
 
 HERE = Path(__file__).resolve().parent
@@ -28,7 +39,12 @@ DB_PATH = ROOT / "db" / "leaf_lit.db"
 ARTICLE_DIR = ROOT.parent / "Leaf_Protein_Extraction" / "literature" / "pdfs_provided_by_user"
 TODAY = date.today().isoformat()
 DEFAULT_FROM_DATE = (date.today() - timedelta(days=30)).isoformat()
-USER_AGENT = "LeafLiteratureAgent/0.1 (mailto:rafi.steckler@example.invalid)"
+# A contact email puts us in the "polite pools" of Crossref/Unpaywall. Set your
+# real address via LEAF_CONTACT_EMAIL; the placeholder still works.
+CONTACT_EMAIL = os.environ.get("LEAF_CONTACT_EMAIL", "leaf-literature-agent@example.com")
+USER_AGENT = f"LeafLiteratureAgent/0.2 (mailto:{CONTACT_EMAIL})"
+
+ALL_SOURCES = ("openalex", "crossref", "europepmc", "semanticscholar")
 
 sys.path.insert(0, str(HERE))
 import auto_ingest  # noqa: E402
@@ -60,93 +76,223 @@ RELEVANCE_TERMS = (
 )
 
 
+# ── generic helpers ───────────────────────────────────────────────────────────
 def run(cmd: list[str], *, check: bool = True) -> subprocess.CompletedProcess:
     return subprocess.run(cmd, cwd=str(ROOT), text=True, capture_output=True, check=check)
 
 
-def request_json(url: str, timeout: int = 30) -> dict:
-    req = Request(url, headers={"User-Agent": USER_AGENT, "Accept": "application/json"})
-    with urlopen(req, timeout=timeout) as resp:
-        return json.loads(resp.read().decode("utf-8"))
+def request_json(url: str, timeout: int = 30, retries: int = 3, headers: dict | None = None) -> dict:
+    """GET JSON, retrying on HTTP 429 with backoff — the proven pattern from the
+    poster project's Semantic Scholar client (S2's keyless pool 429s often; the
+    fix is to wait and retry, not to drop the source)."""
+    hdrs = {"User-Agent": USER_AGENT, "Accept": "application/json"}
+    if headers:
+        hdrs.update(headers)
+    for attempt in range(retries):
+        try:
+            with urlopen(Request(url, headers=hdrs), timeout=timeout) as resp:
+                return json.loads(resp.read().decode("utf-8"))
+        except HTTPError as e:
+            if e.code == 429 and attempt < retries - 1:
+                time.sleep(12 * (attempt + 1))
+                continue
+            raise
+    raise RuntimeError("unreachable")
 
 
-def openalex_search(query: str, *, from_date: str, per_page: int) -> list[dict]:
-    params = {
-        "search": query,
-        "filter": f"from_publication_date:{from_date}",
-        "per-page": str(per_page),
-        "sort": "publication_date:desc",
-    }
-    url = "https://api.openalex.org/works?" + urlencode(params)
-    return request_json(url).get("results", [])
-
-
-def abstract_from_inverted(index: dict | None) -> str:
-    if not index:
-        return ""
-    words = []
-    for word, positions in index.items():
-        for pos in positions:
-            words.append((pos, word))
-    return " ".join(word for _, word in sorted(words))
+# Optional free Semantic Scholar API key (https://www.semanticscholar.org/product/api)
+# lifts the keyless-pool 429s on the search endpoint. Set env LEAF_S2_API_KEY.
+S2_API_KEY = os.environ.get("LEAF_S2_API_KEY", "").strip()
 
 
 def doi_clean(raw: str | None) -> str | None:
     if not raw:
         return None
-    raw = raw.strip()
+    raw = str(raw).strip()
     raw = re.sub(r"^https?://(dx\.)?doi\.org/", "", raw, flags=re.I)
-    return raw.rstrip(".,);]").lower()
+    return raw.rstrip(".,);]").lower() or None
 
 
 def clean_id(text: str) -> str:
-    text = text.lower()
+    text = (text or "").lower()
     text = re.sub(r"[^a-z0-9]+", "_", text).strip("_")
     return re.sub(r"_+", "_", text)[:70] or "paper"
 
 
-def source_name(work: dict) -> str | None:
-    loc = work.get("primary_location") or {}
-    src = loc.get("source") or {}
-    return src.get("display_name")
+def strip_tags(text: str) -> str:
+    return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", text or "")).strip()
 
 
-def authors(work: dict) -> str | None:
-    names = []
-    for a in work.get("authorships") or []:
-        author = a.get("author") or {}
-        name = author.get("display_name")
-        if name:
-            names.append(name)
-    if not names:
-        return None
-    return "; ".join(names[:12]) + ("; et al." if len(names) > 12 else "")
+def year_of(rec: dict) -> int | None:
+    return rec.get("year")
 
 
-def pdf_url(work: dict) -> str | None:
-    locs = []
-    if work.get("primary_location"):
-        locs.append(work["primary_location"])
-    locs.extend(work.get("locations") or [])
+# ── normalised record ─────────────────────────────────────────────────────────
+# Every source adapter returns dicts with these keys:
+#   doi, title, abstract, year, authors, venue, pdf_url, api
+def _record(doi, title, abstract, year, authors, venue, pdf_url, api) -> dict:
+    return {
+        "doi": doi_clean(doi), "title": (title or "Untitled").strip(),
+        "abstract": strip_tags(abstract)[:4000], "year": year,
+        "authors": authors or None, "venue": venue or None,
+        "pdf_url": pdf_url or None, "api": api,
+    }
+
+
+# ── source: OpenAlex ──────────────────────────────────────────────────────────
+def _openalex_abstract(index: dict | None) -> str:
+    if not index:
+        return ""
+    words = [(pos, w) for w, poss in index.items() for pos in poss]
+    return " ".join(w for _, w in sorted(words))
+
+
+def _openalex_pdf(work: dict) -> str | None:
+    locs = ([work["primary_location"]] if work.get("primary_location") else []) + (work.get("locations") or [])
     for loc in locs:
-        url = loc.get("pdf_url") or (loc.get("landing_page_url") if str(loc.get("landing_page_url", "")).lower().endswith(".pdf") else None)
+        url = loc.get("pdf_url")
         if url and url.startswith("http"):
             return url
-    oa = work.get("open_access") or {}
-    url = oa.get("oa_url")
-    if url and str(url).lower().endswith(".pdf"):
-        return url
-    return None
+        lp = str(loc.get("landing_page_url") or "")
+        if lp.lower().endswith(".pdf"):
+            return lp
+    oa = (work.get("open_access") or {}).get("oa_url")
+    return oa if oa and str(oa).lower().endswith(".pdf") else None
+
+
+def openalex_search(query: str, from_date: str, n: int) -> list[dict]:
+    url = "https://api.openalex.org/works?" + urlencode({
+        "search": query, "filter": f"from_publication_date:{from_date}",
+        "per-page": str(n), "sort": "publication_date:desc", "mailto": CONTACT_EMAIL})
+    out = []
+    for w in request_json(url).get("results", []):
+        names = [a["author"]["display_name"] for a in (w.get("authorships") or [])
+                 if (a.get("author") or {}).get("display_name")]
+        auth = "; ".join(names[:12]) + ("; et al." if len(names) > 12 else "") if names else None
+        venue = ((w.get("primary_location") or {}).get("source") or {}).get("display_name")
+        out.append(_record(w.get("doi"), w.get("title"),
+                           _openalex_abstract(w.get("abstract_inverted_index")),
+                           w.get("publication_year"), auth, venue, _openalex_pdf(w), "openalex"))
+    return out
+
+
+# ── source: Crossref ──────────────────────────────────────────────────────────
+def crossref_search(query: str, from_date: str, n: int) -> list[dict]:
+    url = "https://api.crossref.org/works?" + urlencode({
+        "query": query, "rows": str(n), "sort": "published", "order": "desc",
+        "filter": f"from-pub-date:{from_date}", "mailto": CONTACT_EMAIL})
+    out = []
+    for it in request_json(url).get("message", {}).get("items", []):
+        dp = ((it.get("issued") or {}).get("date-parts") or [[None]])[0]
+        year = dp[0] if dp else None
+        names = [f"{a.get('given', '')} {a.get('family', '')}".strip() for a in (it.get("author") or [])]
+        auth = "; ".join(n2 for n2 in names[:12] if n2) or None
+        pdf = None
+        for lnk in it.get("link") or []:
+            if lnk.get("content-type") == "application/pdf" or str(lnk.get("URL", "")).lower().endswith(".pdf"):
+                pdf = lnk.get("URL")
+                break
+        out.append(_record(it.get("DOI"), " ".join(it.get("title") or []),
+                           it.get("abstract", ""), year, auth,
+                           " ".join(it.get("container-title") or []), pdf, "crossref"))
+    return out
+
+
+# ── source: Europe PMC ────────────────────────────────────────────────────────
+def europepmc_search(query: str, from_date: str, n: int) -> list[dict]:
+    q = f'({query}) AND (FIRST_PDATE:[{from_date} TO 3000-01-01])'
+    url = "https://www.ebi.ac.uk/europepmc/webservices/rest/search?" + urlencode({
+        "query": q, "format": "json", "pageSize": str(n), "resultType": "core",
+        "sort": "P_PDATE_D desc"})
+    out = []
+    for r in request_json(url).get("resultList", {}).get("result", []):
+        pdf = None
+        for u in ((r.get("fullTextUrlList") or {}).get("fullTextUrl") or []):
+            if str(u.get("documentStyle", "")).lower() == "pdf" and str(u.get("availability", "")).lower() in ("open access", "free"):
+                pdf = u.get("url")
+                break
+        year = int(r["pubYear"]) if str(r.get("pubYear", "")).isdigit() else None
+        out.append(_record(r.get("doi"), r.get("title"), r.get("abstractText", ""),
+                           year, r.get("authorString"), r.get("journalTitle"), pdf, "europepmc"))
+    return out
+
+
+# ── source: Semantic Scholar ──────────────────────────────────────────────────
+# Native S2 field-of-study gate — cuts the bulk of the keyword noise (drops
+# unrelated botany/pharmacology "leaf extract" hits) using the API's own filter.
+_S2_FIELDS_OF_STUDY = ("Agricultural and Food Sciences,Chemistry,Biology,"
+                       "Engineering,Environmental Science,Materials Science")
+
+
+def semanticscholar_search(query: str, from_date: str, n: int) -> list[dict]:
+    # /paper/search (relevance-ranked) with the native filters documented in S2AG:
+    # fieldsOfStudy + year do the coarse filtering server-side. For a large
+    # backfill use /paper/search/bulk (boolean query, up to 1000, continuation token).
+    from_year = int(from_date[:4]) if from_date[:4].isdigit() else 0
+    params = {
+        "query": query,
+        "fields": "title,abstract,year,externalIds,openAccessPdf,venue,authors",
+        "limit": str(min(n, 100)),
+        "fieldsOfStudy": _S2_FIELDS_OF_STUDY,
+    }
+    if from_year:
+        params["year"] = f"{from_year}-"  # native "from this year onward" filter
+    url = "https://api.semanticscholar.org/graph/v1/paper/search?" + urlencode(params)
+    hdrs = {"x-api-key": S2_API_KEY} if S2_API_KEY else None
+    out = []
+    for p in request_json(url, headers=hdrs).get("data", []):
+        auth = "; ".join(a.get("name", "") for a in (p.get("authors") or [])[:12]) or None
+        out.append(_record((p.get("externalIds") or {}).get("DOI"), p.get("title"),
+                           p.get("abstract", ""), p.get("year"), auth, p.get("venue"),
+                           (p.get("openAccessPdf") or {}).get("url"), "semanticscholar"))
+    return out
+
+
+SOURCE_FUNCS = {
+    "openalex": openalex_search, "crossref": crossref_search,
+    "europepmc": europepmc_search, "semanticscholar": semanticscholar_search,
+}
+
+
+# ── Unpaywall OA-PDF resolver (by DOI) ────────────────────────────────────────
+def unpaywall_pdf(doi: str | None) -> str | None:
+    if not doi:
+        return None
+    url = f"https://api.unpaywall.org/v2/{quote(doi)}?" + urlencode({"email": CONTACT_EMAIL})
+    try:
+        loc = request_json(url, timeout=25).get("best_oa_location") or {}
+        return loc.get("url_for_pdf") or (loc.get("url") if str(loc.get("url", "")).lower().endswith(".pdf") else None)
+    except Exception:  # noqa: BLE001
+        return None
+
+
+# ── merge + relevance ─────────────────────────────────────────────────────────
+def merge_records(records: list[dict]) -> list[dict]:
+    """Collapse the same paper found in >1 source: keep the richest abstract and
+    any PDF url, and record which APIs saw it."""
+    by_key: dict[str, dict] = {}
+    for r in records:
+        key = r["doi"] or "t:" + clean_id(r["title"])
+        if key not in by_key:
+            by_key[key] = dict(r)
+            by_key[key]["apis"] = {r["api"]}
+        else:
+            ex = by_key[key]
+            ex["apis"].add(r["api"])
+            if not ex.get("pdf_url") and r.get("pdf_url"):
+                ex["pdf_url"] = r["pdf_url"]
+            if len(r.get("abstract") or "") > len(ex.get("abstract") or ""):
+                ex["abstract"] = r["abstract"]
+            ex["doi"] = ex.get("doi") or r.get("doi")
+    for r in by_key.values():
+        r["api"] = "+".join(sorted(r.pop("apis", {r["api"]})))
+    return list(by_key.values())
 
 
 def relevance(title: str, abstract: str) -> str:
     blob = f"{title} {abstract}".lower()
     n = sum(1 for term in RELEVANCE_TERMS if term in blob)
-    if n >= 4:
-        return "High"
-    if n >= 2:
-        return "Medium"
-    return "Low"
+    return "High" if n >= 4 else "Medium" if n >= 2 else "Low"
 
 
 def known_dois(conn: sqlite3.Connection) -> set[str]:
@@ -154,86 +300,52 @@ def known_dois(conn: sqlite3.Connection) -> set[str]:
     return {doi_clean(r[0]) for r in rows if doi_clean(r[0])}
 
 
-def paper_id_for(work: dict, doi: str | None) -> str:
-    year = work.get("publication_year") or ""
-    title = work.get("title") or "untitled"
-    if doi:
-        suffix = clean_id(doi.split("/")[-1])
-        return f"search_{year}_{suffix}"[:80]
-    return f"search_{year}_{clean_id(title)}"[:80]
+# ── DB insert (normalised record) ─────────────────────────────────────────────
+def paper_id_for(rec: dict) -> str:
+    year = rec.get("year") or ""
+    if rec.get("doi"):
+        return f"search_{year}_{clean_id(rec['doi'].split('/')[-1])}"[:80]
+    return f"search_{year}_{clean_id(rec['title'])}"[:80]
 
 
-def insert_categories(conn: sqlite3.Connection, paper_id: str, cluster: str, title: str, abstract: str) -> None:
-    cats = {f"source:search", f"search_cluster:{cluster}"}
-    blob = f"{title} {abstract}".lower()
-    if "machine learning" in blob or "random forest" in blob or "svm" in blob:
+def insert_categories(conn, pid: str, cluster: str, blob: str) -> None:
+    cats = {"source:search", f"search_cluster:{cluster}"}
+    b = blob.lower()
+    if "machine learning" in b or "random forest" in b or re.search(r"\bsvm\b", b):
         cats.add("analysis:ML")
-    if "lipoxygenase" in blob or re.search(r"\blox\b", blob):
+    if "lipoxygenase" in b or re.search(r"\blox\b", b):
         cats.add("mechanism:LOX")
-    if "chlorophyll" in blob or "color" in blob or "colour" in blob:
+    if "chlorophyll" in b or "colour" in b or "color" in b:
         cats.add("outcome:color")
-    if "flavor" in blob or "flavour" in blob or "odor" in blob or "odour" in blob or "hexanal" in blob:
+    if any(w in b for w in ("flavor", "flavour", "odor", "odour", "hexanal")):
         cats.add("outcome:off_flavor")
-    if "yield" in blob:
+    if "yield" in b:
         cats.add("outcome:yield")
-    if "protein" in blob:
+    if "protein" in b:
         cats.add("outcome:protein_purity")
-    for cat in sorted(cats):
-        conn.execute("INSERT OR IGNORE INTO paper_categories (paper_id, category) VALUES (?,?)", (paper_id, cat))
+    for c in sorted(cats):
+        conn.execute("INSERT OR IGNORE INTO paper_categories (paper_id, category) VALUES (?,?)", (pid, c))
 
 
-def insert_search_paper(conn: sqlite3.Connection, work: dict, cluster: str, access: str, pdf: str | None) -> str:
-    doi = doi_clean(work.get("doi"))
-    title = work.get("title") or "Untitled"
-    abstract = abstract_from_inverted(work.get("abstract_inverted_index"))
-    pid = paper_id_for(work, doi)
-    base = pid
-    n = 2
-    while conn.execute("SELECT 1 FROM papers WHERE paper_id=?", (pid,)).fetchone():
-        pid = f"{base}_{n}"
-        n += 1
-
-    rel = relevance(title, abstract)
-    story = (
-        f"Discovered automatically by scheduled OpenAlex search ({cluster}). "
-        f"Access status: {access}."
-    )
+def insert_search_paper(conn, rec: dict, cluster: str, access: str, pid: str) -> None:
+    rel = relevance(rec["title"], rec["abstract"])
+    story = f"Discovered automatically by scheduled search via {rec['api']} ({cluster}). Access: {access}."
     conn.execute(
         """INSERT INTO papers (paper_id, doi, title, authors, year, venue,
            source_type, system, extraction_method_family, relevance,
            verification_level, access_status, si_status, discovery,
            scientific_story, key_findings, added_date, last_updated)
            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
-        (
-            pid, doi, title, authors(work), work.get("publication_year"), source_name(work),
-            "peer-reviewed", "unknown", "unknown", rel,
-            "full_text" if access == "open" else "abstract",
-            access, "unknown", "keyword_search", story,
-            abstract[:1800] if abstract else "Abstract unavailable from OpenAlex.",
-            TODAY, TODAY,
-        ),
-    )
-    insert_categories(conn, pid, cluster, title, abstract)
-    if access != "open":
-        conn.execute(
-            """INSERT INTO access_queue
-               (paper_id, doi, missing, link, why_it_matters, requested_date, resolved_date)
-               VALUES (?,?,?,?,?,?,NULL)""",
-            (pid, doi, "main", work.get("id") or work.get("doi"), f"Matched search cluster: {cluster}", TODAY),
-        )
-    elif pdf:
-        conn.execute(
-            """INSERT INTO access_queue
-               (paper_id, doi, missing, link, why_it_matters, requested_date, resolved_date)
-               VALUES (?,?,?,?,?,?,?)""",
-            (pid, doi, "SI", pdf, "OA main PDF found automatically; supplementary material not checked.", TODAY, TODAY),
-        )
-    return pid
+        (pid, rec["doi"], rec["title"], rec["authors"], rec["year"], rec["venue"],
+         "peer-reviewed", "unknown", "unknown", rel,
+         "full_text" if access == "open" else "abstract", access, "unknown",
+         f"keyword_search:{rec['api']}", story,
+         rec["abstract"][:1800] or "Abstract unavailable.", TODAY, TODAY))
+    insert_categories(conn, pid, cluster, f"{rec['title']} {rec['abstract']}")
 
 
 def safe_filename(text: str) -> str:
-    name = re.sub(r"[^A-Za-z0-9._ -]+", " ", text).strip()
-    name = re.sub(r"\s+", " ", name)
+    name = re.sub(r"\s+", " ", re.sub(r"[^A-Za-z0-9._ -]+", " ", text)).strip()
     return (name[:140] or "paper") + ".pdf"
 
 
@@ -252,104 +364,130 @@ def download_pdf(url: str, target: Path) -> bool:
         return False
 
 
-def process_work(conn: sqlite3.Connection, work: dict, cluster: str, *, dry_run: bool) -> tuple[bool, bool]:
-    doi = doi_clean(work.get("doi"))
-    if doi and doi in known_dois(conn):
+def process_record(conn, rec: dict, cluster: str, seen: set, *, use_unpaywall: bool,
+                   dry_run: bool) -> tuple[bool, bool]:
+    doi = rec.get("doi")
+    key = doi or "t:" + clean_id(rec["title"])
+    if key in seen:
         return False, False
-    title = work.get("title") or "Untitled"
-    abstract = abstract_from_inverted(work.get("abstract_inverted_index"))
-    rel = relevance(title, abstract)
+    if doi and doi in known_dois(conn):
+        seen.add(key)
+        return False, False
+    rel = relevance(rec["title"], rec["abstract"])
     if rel == "Low":
         if dry_run:
-            print(f"[skip-low] {cluster}: {title[:100]} | doi={doi or '-'}")
+            print(f"[skip-low] {cluster} [{rec['api']}]: {rec['title'][:90]}")
+        seen.add(key)
         return False, False
-    pdf = pdf_url(work)
+
+    pdf = rec.get("pdf_url")
+    if not pdf and use_unpaywall and doi:
+        pdf = unpaywall_pdf(doi)
+        if pdf:
+            rec["api"] += "+unpaywall"
     has_pdf = bool(pdf)
     if dry_run:
-        print(f"[dry] {cluster}: {title[:100]} | relevance={rel} | doi={doi or '-'} | pdf={'yes' if has_pdf else 'no'}")
+        print(f"[dry] {cluster} [{rec['api']}]: {rec['title'][:80]} | rel={rel} | "
+              f"doi={doi or '-'} | pdf={'yes' if has_pdf else 'no'}")
+        seen.add(key)
         return True, has_pdf
 
+    seen.add(key)
+    pid = paper_id_for(rec)
+    base, k = pid, 2
+    while conn.execute("SELECT 1 FROM papers WHERE paper_id=?", (pid,)).fetchone():
+        pid = f"{base}_{k}"
+        k += 1
     access = "open" if has_pdf else "queued"
-    pid = insert_search_paper(conn, work, cluster, access, pdf)
+    insert_search_paper(conn, rec, cluster, access, pid)
+
     if has_pdf and pdf:
-        pdf_path = ARTICLE_DIR / safe_filename(f"{pid} {title}")
+        pdf_path = ARTICLE_DIR / safe_filename(f"{pid} {rec['title']}")
         if download_pdf(pdf, pdf_path):
             text = auto_ingest.extract_text(pdf_path)
             rows = auto_ingest.store_mock_results(conn, pid, text)
             auto_ingest.update_pdf_map(pid, pdf_path)
-            print(f"  + {pid}: OA PDF downloaded, {rows} numeric rows flagged")
-        else:
-            conn.execute("UPDATE papers SET verification_level='abstract', access_status='queued' WHERE paper_id=?", (pid,))
-            conn.execute(
-                """INSERT INTO access_queue
-                   (paper_id, doi, missing, link, why_it_matters, requested_date, resolved_date)
-                   VALUES (?,?,?,?,?,?,NULL)""",
-                (pid, doi, "main", pdf, "OA PDF URL failed to download; manual access needed.", TODAY),
-            )
-            has_pdf = False
-            print(f"  + {pid}: metadata queued; PDF URL failed")
-    else:
-        print(f"  + {pid}: metadata queued; no OA PDF")
-    return True, has_pdf
+            print(f"  + {pid} [{rec['api']}]: OA PDF downloaded, {rows} numeric rows flagged")
+            return True, True
+        conn.execute("UPDATE papers SET verification_level='abstract', access_status='queued' WHERE paper_id=?", (pid,))
+        pdf, has_pdf = None, False
+    conn.execute(
+        """INSERT INTO access_queue (paper_id, doi, missing, link, why_it_matters, requested_date, resolved_date)
+           VALUES (?,?,?,?,?,?,NULL)""",
+        (pid, doi, "main", pdf or rec.get("doi") or "", f"Search cluster {cluster} via {rec['api']}", TODAY))
+    print(f"  + {pid} [{rec['api']}]: metadata queued (no OA PDF)")
+    return True, False
 
 
 def commit_push() -> None:
-    run(["git", "add", "db/leaf_lit.db", "db/pdf_sources.json", "agent/literature_search.py", "run_search_once.bat", "run_search_watch.bat", "dashboard/README.md"])
-    if not run(["git", "status", "--porcelain"]).stdout.strip():
+    run(["git", "add", "db/leaf_lit.db", "db/pdf_sources.json", "agent/literature_search.py",
+         "run_search_once.bat", "run_search_watch.bat", "dashboard/README.md"], check=False)
+    if not run(["git", "status", "--porcelain"], check=False).stdout.strip():
         print("No Git changes to publish.")
         return
-    run(["git", "commit", "-m", "Auto-search literature updates"])
-    run(["git", "push"])
+    run(["git", "commit", "-m", "Auto-search literature updates"], check=False)
+    run(["git", "push"], check=False)
 
 
-def search_once(*, from_date: str, per_page: int, dry_run: bool, publish: bool) -> int:
+def search_once(*, sources: list[str], from_date: str, per_page: int, use_unpaywall: bool,
+                dry_run: bool, publish: bool) -> int:
     conn = sqlite3.connect(DB_PATH)
     conn.execute("PRAGMA foreign_keys = ON")
-    total_new = 0
-    total_pdf = 0
+    seen: set = set()
+    total_new = total_pdf = 0
     for cluster, queries in SEARCH_QUERIES.items():
         for query in queries:
-            try:
-                works = openalex_search(query, from_date=from_date, per_page=per_page)
-            except Exception as exc:  # noqa: BLE001
-                print(f"[WARN] query failed: {query}: {exc}", file=sys.stderr)
-                continue
+            records: list[dict] = []
+            for src in sources:
+                try:
+                    records += SOURCE_FUNCS[src](query, from_date, per_page)
+                except Exception as exc:  # noqa: BLE001 — one source down must not stop the rest
+                    print(f"[WARN] {src} failed on {query!r}: {exc}", file=sys.stderr)
+                time.sleep(1.0)  # be polite to each API
+            merged = merge_records(records)
             n_new = 0
-            for work in works:
-                is_new, got_pdf = process_work(conn, work, cluster, dry_run=dry_run)
+            for rec in merged:
+                is_new, got_pdf = process_record(conn, rec, cluster, seen,
+                                                 use_unpaywall=use_unpaywall, dry_run=dry_run)
                 n_new += int(is_new)
                 total_pdf += int(got_pdf)
             total_new += n_new
             if not dry_run:
-                conn.execute(
-                    "INSERT INTO query_log (run_date, cluster, query, n_hits, n_new) VALUES (?,?,?,?,?)",
-                    (TODAY, cluster, query, len(works), n_new),
-                )
+                conn.execute("INSERT INTO query_log (run_date, cluster, query, n_hits, n_new) VALUES (?,?,?,?,?)",
+                             (TODAY, cluster, query, len(merged), n_new))
                 conn.commit()
-            print(f"{cluster}: {query!r} -> {len(works)} hits, {n_new} new")
-            time.sleep(1.0)
+            print(f"{cluster}: {query!r} -> {len(merged)} unique across {len(sources)} sources, {n_new} new")
     if not dry_run:
         conn.execute("INSERT OR REPLACE INTO run_state (key, value) VALUES ('last_literature_search', ?)", (TODAY,))
         conn.commit()
     conn.close()
-    print(f"\nSearch complete: {total_new} new records, {total_pdf} with OA PDF.")
+    print(f"\nSearch complete: {total_new} new records, {total_pdf} with OA PDF. Sources: {', '.join(sources)}.")
     if publish and not dry_run and total_new:
         commit_push()
     return total_new
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--from-date", default=os.environ.get("LEAF_SEARCH_FROM", DEFAULT_FROM_DATE))
-    parser.add_argument("--per-page", type=int, default=int(os.environ.get("LEAF_SEARCH_PER_PAGE", "10")))
-    parser.add_argument("--watch", action="store_true", help="run repeatedly")
-    parser.add_argument("--interval-hours", type=float, default=24.0)
-    parser.add_argument("--dry-run", action="store_true")
-    parser.add_argument("--no-push", action="store_true")
-    args = parser.parse_args()
+    p = argparse.ArgumentParser()
+    p.add_argument("--sources", default=os.environ.get("LEAF_SEARCH_SOURCES", ",".join(ALL_SOURCES)),
+                   help=f"comma list from {ALL_SOURCES}")
+    p.add_argument("--no-unpaywall", action="store_true", help="skip Unpaywall OA-PDF lookup")
+    p.add_argument("--from-date", default=os.environ.get("LEAF_SEARCH_FROM", DEFAULT_FROM_DATE))
+    p.add_argument("--per-page", type=int, default=int(os.environ.get("LEAF_SEARCH_PER_PAGE", "10")))
+    p.add_argument("--watch", action="store_true")
+    p.add_argument("--interval-hours", type=float, default=24.0)
+    p.add_argument("--dry-run", action="store_true")
+    p.add_argument("--no-push", action="store_true")
+    args = p.parse_args()
+
+    sources = [s.strip() for s in args.sources.split(",") if s.strip() in SOURCE_FUNCS]
+    if not sources:
+        print(f"No valid sources in {args.sources!r}; choose from {ALL_SOURCES}", file=sys.stderr)
+        return 2
 
     while True:
-        search_once(from_date=args.from_date, per_page=args.per_page, dry_run=args.dry_run, publish=not args.no_push)
+        search_once(sources=sources, from_date=args.from_date, per_page=args.per_page,
+                    use_unpaywall=not args.no_unpaywall, dry_run=args.dry_run, publish=not args.no_push)
         if not args.watch:
             return 0
         time.sleep(max(1.0, args.interval_hours) * 3600)

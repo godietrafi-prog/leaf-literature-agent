@@ -40,13 +40,34 @@ The automation moves PDFs into the local article store, updates `db/leaf_lit.db`
 ## Search for new papers automatically
 Use the search BAT files when you want the agent to look for new literature itself:
 
-- `run_search_once.bat` — query OpenAlex once, add new DOI records, download open-access
+- `run_search_once.bat` — search all sources once, add new DOI records, download open-access
   PDFs when available, commit the updated DB/mapping, and push to GitHub.
 - `run_search_watch.bat` — run the same search every 24 hours.
 
-The search path uses public metadata first and applies a conservative keyword relevance
-filter before writing to the DB. If a paper is relevant but no open PDF is found, it is
-added to `access_queue` so the dashboard can show what needs manual access.
+**Sources queried** (all keyless / public; results merged and de-duplicated by DOI):
+- **OpenAlex** — DOI-centric, good open-access-URL coverage.
+- **Crossref** — broad publisher metadata + PDF links.
+- **Europe PMC** — biomedical / PubMed with open-access full-text URLs.
+- **Semantic Scholar** — extra coverage + `openAccessPdf` (rate-limited without a key).
+- **Unpaywall** — not a search source; for any DOI returned *without* a PDF, it looks up a
+  legal open-access PDF so more papers ingest fully instead of only queueing.
+
+A conservative keyword relevance filter runs before anything is written; low-relevance hits
+are dropped. Relevant papers with no open PDF are added to `access_queue` so the dashboard
+shows what needs manual access.
+
+**Tuning (optional flags for `agent/literature_search.py`):**
+- `--sources openalex,crossref,europepmc,semanticscholar` — pick a subset (default: all).
+- `--no-unpaywall` — skip the Unpaywall OA lookup.
+- `--per-page N` / `--from-date YYYY-MM-DD` — results per query / how far back.
+- Set `LEAF_CONTACT_EMAIL=you@telhai.ac.il` to join the Crossref/Unpaywall "polite pools"
+  (faster, more reliable). It is only a courtesy header — no account needed.
+- **Semantic Scholar rate limits.** The keyless *search* endpoint returns HTTP 429 under
+  load (the search agent retries with backoff, then skips S2 for that query — the other
+  three sources still run, so nothing breaks). For reliable S2 search, get a **free API key**
+  (https://www.semanticscholar.org/product/api) and set `LEAF_S2_API_KEY=...`. (The poster
+  project avoids 429s because it calls the lightly-throttled author-by-ID endpoint, not the
+  heavily-throttled keyword-search endpoint this agent needs.)
 
 ## Share the live app with the team (a real link)
 Streamlit needs a host. Options, cheapest first:

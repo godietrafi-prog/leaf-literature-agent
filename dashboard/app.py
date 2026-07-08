@@ -112,7 +112,7 @@ T = {'title': 'Leaf Literature Agent',
             'find it; ④ if correct, tick **✓ verified**; if wrong, type the **corrected value** + '
             'a note; ⑤ press **Save**.',
  'ver_pdf': 'PDF to open',
- 'norm_sensory_only': '👃 only sensory / colour parameters (the real target)',
+ 'norm_sensory_only': '🎯 only sensory / colour parameters (the real target)',
  'norm_none': 'No parameter matches. Uncheck the sensory filter.',
  'norm_is_sensory': "sensory / colour — the project's real target",
  'norm_thin': '⚠ Only one study reports this — too thin for a cross-study comparison yet (this is '
@@ -200,6 +200,22 @@ def q_friendly(q: str) -> str:
 def q_is_sensory(q: str) -> bool:
     ql = (q or "").lower()
     return any(k in ql for k in _SENSORY_KW)
+
+
+_AROMA_KW = ("odor", "odour", "flavor", "flavour", "aldehyde", "hexanal", "hexenal",
+             "voc", "sensory", "aroma", "lox")
+_COLOUR_KW = ("chlorophyll", "color", "colour", "green")
+
+
+def q_target_emoji(q: str) -> str:
+    """👃 for aroma/flavor quantities, 🎨 for colour ones, '' otherwise —
+    so a colour parameter never gets the nose icon."""
+    ql = (q or "").lower()
+    if any(k in ql for k in _AROMA_KW):
+        return "👃"
+    if any(k in ql for k in _COLOUR_KW):
+        return "🎨"
+    return ""
 
 
 def clean_text(value) -> str:
@@ -512,12 +528,13 @@ with tab_norm:
         default_ix = quants.index("protein_purity_pct") if "protein_purity_pct" in quants else 0
         qsel = st.selectbox(
             t["norm_pick"], quants, index=default_ix,
-            format_func=lambda q: f"{'👃 ' if q_is_sensory(q) else ''}{q_friendly(q)}  ·  {qcounts[q]} "
+            format_func=lambda q: f"{q_target_emoji(q) + ' ' if q_target_emoji(q) else ''}"
+                                  f"{q_friendly(q)}  ·  {qcounts[q]} "
                                   f"{'study' if qcounts[q] == 1 else 'studies'}")
         d = numeric[numeric.quantity == qsel].copy()
         units = ", ".join(sorted({str(u) for u in d.unit.dropna().unique()})) or "—"
         st.caption(f"{t['norm_learnable']}: {d.paper_id.nunique()}   ·   {t['norm_unit']}: {units}"
-                   + (f"   ·   👃 {t['norm_is_sensory']}" if q_is_sensory(qsel) else ""))
+                   + (f"   ·   {q_target_emoji(qsel)} {t['norm_is_sensory']}" if q_is_sensory(qsel) else ""))
         if d.paper_id.nunique() < 2:
             st.warning(t["norm_thin"])
         d["prov"] = d.provenance.map(lambda p: "seed" if p == "seed" else "extracted")
