@@ -37,6 +37,17 @@ Then run one of the BAT files from Windows Explorer:
 The automation moves PDFs into the local article store, updates `db/leaf_lit.db` and
 `db/pdf_sources.json`, and marks auto-extracted values for review in the dashboard.
 
+## Search for new papers automatically
+Use the search BAT files when you want the agent to look for new literature itself:
+
+- `run_search_once.bat` — query OpenAlex once, add new DOI records, download open-access
+  PDFs when available, commit the updated DB/mapping, and push to GitHub.
+- `run_search_watch.bat` — run the same search every 24 hours.
+
+The search path uses public metadata first and applies a conservative keyword relevance
+filter before writing to the DB. If a paper is relevant but no open PDF is found, it is
+added to `access_queue` so the dashboard can show what needs manual access.
+
 ## Share the live app with the team (a real link)
 Streamlit needs a host. Options, cheapest first:
 1. **Streamlit Community Cloud** — free; point it at a GitHub repo containing `app.py` +
