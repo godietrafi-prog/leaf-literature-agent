@@ -69,7 +69,7 @@ def _is_target_paper(conn, paper_id: str) -> bool:
 
 
 def _select_papers(conn, pdf_map: dict, paper_ids: list[str] | None,
-                   search_only: bool, target_only: bool) -> list[str]:
+                   search_only: bool, target_only: bool, skip_llm_existing: bool) -> list[str]:
     selected = sorted(pdf_map)
     if paper_ids:
         wanted = set(paper_ids)
@@ -82,11 +82,19 @@ def _select_papers(conn, pdf_map: dict, paper_ids: list[str] | None,
     ]
     if target_only:
         selected = [pid for pid in selected if _is_target_paper(conn, pid)]
+    if skip_llm_existing:
+        selected = [
+            pid for pid in selected
+            if not conn.execute(
+                "SELECT 1 FROM numeric_results WHERE paper_id=? AND provenance LIKE 'llm:%' LIMIT 1",
+                (pid,),
+            ).fetchone()
+        ]
     return selected
 
 
 def store(*, paper_ids: list[str] | None = None, search_only: bool = False,
-          target_only: bool = False, mock: bool = False):
+          target_only: bool = False, mock: bool = False, skip_llm_existing: bool = False):
     conn = sqlite3.connect(DB_PATH)
     _ensure_provenance_col(conn)
     pdf_map = eval_extract._load_pdf_map()
@@ -99,21 +107,23 @@ def store(*, paper_ids: list[str] | None = None, search_only: bool = False,
         client = BedrockClient()
         tag = f"llm:{client.model.split('.')[-1]}"  # e.g. llm:claude-sonnet-4-6
 
-    selected = _select_papers(conn, pdf_map, paper_ids, search_only, target_only)
+    selected = _select_papers(conn, pdf_map, paper_ids, search_only, target_only, skip_llm_existing)
     if not selected:
         print("No mapped PDF papers matched the requested filters.")
         conn.close()
         return
 
     n_papers = n_rows = n_flagged = 0
-    for pid in selected:
+    for i, pid in enumerate(selected, start=1):
+        print(f"  [{i}/{len(selected)}] extracting {pid} ...", flush=True)
         text, kind = eval_extract.paper_source_text(conn, pid, pdf_map)
         if kind != "pdf" or not text.strip():
+            print(f"  [skip] {pid}: no readable PDF text", flush=True)
             continue
         try:
             out = extract.extract_paper(text, client=client, mock=mock)
         except Exception as e:  # noqa: BLE001 — truncated/failed paper: skip, don't abort
-            print(f"  [skip] {pid}: {str(e)[:80]}")
+            print(f"  [skip] {pid}: {str(e)[:120]}", flush=True)
             continue
 
         cur = conn.cursor()
@@ -146,7 +156,7 @@ def store(*, paper_ids: list[str] | None = None, search_only: bool = False,
         conn.commit()
         n_papers += 1
         n_rows += rows
-        print(f"  {pid:<32} +{rows} rows")
+        print(f"  {pid:<32} +{rows} rows", flush=True)
 
     if n_papers:
         conn.execute("INSERT OR REPLACE INTO run_state (key, value) VALUES ('last_extract_store', ?)", (TODAY,))
@@ -169,6 +179,8 @@ if __name__ == "__main__":
                     help="process only papers whose metadata touches sensory/color/oxidation targets")
     ap.add_argument("--mock", action="store_true",
                     help="use the local regex extractor instead of Bedrock")
+    ap.add_argument("--skip-llm-existing", action="store_true",
+                    help="skip papers that already have llm:* numeric rows")
     args = ap.parse_args()
     store(paper_ids=args.paper_id, search_only=args.search_only,
-          target_only=args.target_only, mock=args.mock)
+          target_only=args.target_only, mock=args.mock, skip_llm_existing=args.skip_llm_existing)

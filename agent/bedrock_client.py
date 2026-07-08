@@ -36,6 +36,7 @@ CACHE_PATH = os.path.join(ROOT, "db", "bedrock_cache.db")
 # us.anthropic.claude-opus-4-8 once that profile is enabled in Bedrock.
 DEFAULT_MODEL = os.environ.get("LEAF_BEDROCK_MODEL", "us.anthropic.claude-sonnet-4-6")
 DEFAULT_REGION = os.environ.get("AWS_REGION", "us-east-1")
+DEFAULT_MAX_TOKENS = int(os.environ.get("LEAF_BEDROCK_MAX_TOKENS", "32000"))
 
 _bedrock = None  # module-level boto3 client, created once (mirrors llm_rescue)
 
@@ -90,7 +91,7 @@ def _parse_json(text: str) -> dict:
 
 class BedrockClient:
     def __init__(self, model: str = DEFAULT_MODEL, region: str = DEFAULT_REGION,
-                 max_tokens: int = 16000):
+                 max_tokens: int = DEFAULT_MAX_TOKENS):
         self.model = model
         self.region = region
         self.max_tokens = max_tokens
