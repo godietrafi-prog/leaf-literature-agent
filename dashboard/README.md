@@ -37,6 +37,20 @@ Then run one of the BAT files from Windows Explorer:
 The automation moves PDFs into the local article store, updates `db/leaf_lit.db` and
 `db/pdf_sources.json`, and marks auto-extracted values for review in the dashboard.
 
+## Upgrade new PDFs with Bedrock extraction
+After the search/ingest step has added PDFs, run:
+
+- `run_bedrock_extract_search.bat`
+
+This processes only mapped PDFs whose `paper_id` starts with `search_` and whose metadata
+touches the real target area: off-odor, off-flavor, aroma volatiles, chlorophyll/colour,
+browning, LOX, phenolics, oxidation, pigments, or related sensory terms.
+
+It writes rows to `numeric_results` with `provenance='llm:<model>'`. Existing unverified
+auto/mock rows for that paper are replaced; curated seed rows and already verified rows are
+left intact. The dashboard still marks these Bedrock rows as unverified until a human checks
+the quoted source text in the Verify tab.
+
 ## Search for new papers automatically
 Use the search BAT files when you want the agent to look for new literature itself:
 

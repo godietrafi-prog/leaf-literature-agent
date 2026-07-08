@@ -21,6 +21,7 @@ import json
 import os
 import re
 import sqlite3
+from datetime import date
 
 import altair as alt
 import pandas as pd
@@ -57,6 +58,9 @@ T = {'title': 'Leaf Literature Agent',
                      'carries a verbatim source quote; NOT yet human-verified.',
  'tab_overview': 'Overview',
  'tab_corpus': 'Corpus',
+ 'tab_sensory': 'Target matrix',
+ 'tab_evidence': 'Evidence map',
+ 'tab_hypothesis': 'Hypothesis',
  'tab_ai': 'AI / ML methods',
  'tab_extracted': 'Extracted data',
  'tab_cats': 'Topic coverage',
@@ -155,7 +159,22 @@ T = {'title': 'Leaf Literature Agent',
  'cats_n': 'The controlled vocabulary that makes the corpus queryable.',
  'prov': 'Every number traces to a paper_id · nothing fabricated · null ≠ zero',
  'reported': 'reported value',
- 'needs': 'needs verify'}
+ 'needs': 'needs verify',
+ 'sensory_h': 'Sensory target matrix',
+ 'sensory_n': 'The real product target: not just protein recovery, but lower off-flavor, lower '
+              'off-odor, less green colour, and lower enzymatic oxidation markers. This view '
+              'shows where the corpus has measured target evidence and where it is still thin.',
+ 'evidence_h': 'Core vs transfer evidence',
+ 'evidence_n': 'Core evidence directly studies leaf/pulse/plant-protein extraction or ingredient '
+               'quality. Transfer evidence is mechanistically useful but comes from adjacent '
+               'systems such as fish, shrimp, tea, or generic hydrolysates.',
+ 'hyp_h': 'Working hypothesis map',
+ 'hyp_n': 'The literature is converging on a process hypothesis: clean leaf protein requires '
+          'early control of enzymatic oxidation and pigment/phenolic carryover, then a '
+          'separation step that preserves functional protein while stripping sensory defects.',
+ 'coverage': 'coverage',
+ 'core_evidence': 'Core evidence',
+ 'transfer_evidence': 'Transfer evidence'}
 TECH_LABEL = {
     "deep_learning": "Deep learning", "ML": "Machine learning", "digital_twin": "Digital twin",
     "DOE_RSM": "DOE / RSM", "proteomics": "Proteomics",
@@ -191,6 +210,19 @@ QUANTITY_LABEL = {
 # quantities that speak to the REAL target — off-odor / off-flavor / colour
 _SENSORY_KW = ("odor", "odour", "flavor", "flavour", "aldehyde", "hexanal", "hexenal",
                "voc", "sensory", "aroma", "chlorophyll", "color", "colour", "green", "lox")
+TARGET_DIMENSIONS = {
+    "Off-flavor / aroma": ("odor", "odour", "flavor", "flavour", "aroma", "hexanal",
+                           "aldehyde", "voc", "sensory", "beany"),
+    "Colour / pigments": ("chlorophyll", "color", "colour", "green", "browning", "melanosis"),
+    "Oxidation / enzymes": ("lox", "lipoxygenase", "polyphenol", "phenolic", "oxidation",
+                            "enzyme", "enzymatic"),
+    "Protein recovery": ("protein_purity", "yield", "rubisco", "solubility", "protein content"),
+}
+CORE_TERMS = ("leaf", "rubisco", "plant protein", "pea protein", "chickpea", "camelina",
+              "pennycress", "clover", "duckweed", "alfalfa", "nettle", "sugar beet",
+              "spinach", "radish", "moringa", "cassava", "cauliflower")
+TRANSFER_TERMS = ("tuna", "shrimp", "tea", "fish", "hydrolysate", "liver", "chocolate",
+                  "milk", "dairy")
 
 
 def q_friendly(q: str) -> str:
@@ -200,6 +232,36 @@ def q_friendly(q: str) -> str:
 def q_is_sensory(q: str) -> bool:
     ql = (q or "").lower()
     return any(k in ql for k in _SENSORY_KW)
+
+
+def paper_blob(row) -> str:
+    return " ".join([
+        clean_text(row.get("paper_id") if hasattr(row, "get") else row.paper_id),
+        clean_text(row.get("title") if hasattr(row, "get") else row.title),
+        clean_text(row.get("system") if hasattr(row, "get") else row.system),
+        clean_text(row.get("extraction_method_family") if hasattr(row, "get") else row.extraction_method_family),
+        clean_text(row.get("scientific_story") if hasattr(row, "get") else row.scientific_story),
+        " ".join(row.get("cats", []) if hasattr(row, "get") else row.cats),
+    ]).lower()
+
+
+def evidence_class(row) -> str:
+    blob = paper_blob(row)
+    target = any(k in blob for ks in TARGET_DIMENSIONS.values() for k in ks)
+    core = any(k in blob for k in CORE_TERMS)
+    transfer = any(k in blob for k in TRANSFER_TERMS)
+    if core and target:
+        return "Core evidence"
+    if transfer and target:
+        return "Transfer evidence"
+    if core:
+        return "Core context"
+    return "Transfer/context"
+
+
+def dimension_hits(row) -> list[str]:
+    blob = paper_blob(row)
+    return [name for name, terms in TARGET_DIMENSIONS.items() if any(t in blob for t in terms)]
 
 
 _AROMA_KW = ("odor", "odour", "flavor", "flavour", "aldehyde", "hexanal", "hexenal",
@@ -260,7 +322,7 @@ def load(_mtime: float):
     papers["n_flags"] = papers.paper_id.map(
         seed_num[seed_num.needs_human == 1].groupby("paper_id").size()).fillna(0).astype(int)
     papers["n_extracted"] = papers.paper_id.map(
-        numeric[numeric.provenance.str.startswith("llm:")].groupby("paper_id").size()
+        numeric[numeric.provenance != "seed"].groupby("paper_id").size()
     ).fillna(0).astype(int)
     papers["year_str"] = papers["year"].map(lambda y: "" if pd.isna(y) else str(int(y)))
     return papers, numeric, cats
@@ -326,7 +388,7 @@ st.markdown(f"# {t['title']}")
 st.markdown(f'<p class="llead">{t["tagline"]}</p>', unsafe_allow_html=True)
 
 seed_num = numeric[numeric.provenance == "seed"]
-llm_num = numeric[numeric.provenance.str.startswith("llm:")]
+extracted_num = numeric[numeric.provenance != "seed"]
 n_flag = int((seed_num.needs_human == 1).sum())
 n_full = int(papers.verification_level.fillna("").str.contains("full_text").sum())
 n_ai = int(papers.analysis.map(lambda a: any(x in a for x in ("ML", "deep_learning", "digital_twin"))).sum())
@@ -338,11 +400,12 @@ c[2].metric(t["k_flag"], n_flag)
 c[3].metric(t["k_species"], papers.species.nunique())
 c[4].metric(t["k_full"], n_full)
 c[5].metric(t["k_ai"], n_ai)
-c[6].metric(t["k_extracted"], len(llm_num), help=t["k_extracted_help"])
+c[6].metric(t["k_extracted"], len(extracted_num), help=t["k_extracted_help"])
 
-(tab_ov, tab_corpus, tab_ex, tab_norm, tab_verify, tab_gaps,
+(tab_ov, tab_sensory, tab_evidence, tab_hypothesis, tab_corpus, tab_ex, tab_norm, tab_verify, tab_gaps,
  tab_compare, tab_ai, tab_cats) = st.tabs(
-    [t["tab_overview"], t["tab_corpus"], t["tab_extracted"], t["tab_normalize"],
+    [t["tab_overview"], t["tab_sensory"], t["tab_evidence"], t["tab_hypothesis"],
+     t["tab_corpus"], t["tab_extracted"], t["tab_normalize"],
      t["tab_verify"], t["tab_gaps"], t["tab_compare"], t["tab_ai"], t["tab_cats"]])
 
 
@@ -382,11 +445,133 @@ with tab_ov:
     st.altair_chart(bar_chart(seed_num, "yield_pct", t["yield_h"]), width="stretch")
 
 
+with tab_sensory:
+    st.markdown(f"### {t['sensory_h']}")
+    st.markdown(f'<p class="llead">{t["sensory_n"]}</p>', unsafe_allow_html=True)
+    target_quantities = sorted(q for q in numeric.quantity.dropna().unique() if q_is_sensory(q))
+    target_rows = numeric[numeric.quantity.isin(target_quantities)].copy()
+
+    sm = st.columns(4)
+    sm[0].metric("Target quantities", len(target_quantities))
+    sm[1].metric("Papers with target data", target_rows.paper_id.nunique())
+    sm[2].metric("Target numeric rows", len(target_rows))
+    sm[3].metric("Need verification", int(target_rows.needs_human.fillna(0).sum()) if len(target_rows) else 0)
+
+    dim_records = []
+    for _, p in papers.iterrows():
+        for dim in dimension_hits(p):
+            dim_records.append({
+                "paper_id": p.paper_id,
+                "dimension": dim,
+                "evidence": evidence_class(p),
+                "relevance": clean_text(p.relevance) or "Unknown",
+            })
+    dim_df = pd.DataFrame(dim_records)
+    if len(dim_df):
+        heat = dim_df.groupby(["dimension", "evidence"]).paper_id.nunique().reset_index(name="papers")
+        chart = (
+            alt.Chart(heat).mark_rect().encode(
+                x=alt.X("evidence:N", title=None, axis=alt.Axis(labelColor=INK2, labelAngle=-20)),
+                y=alt.Y("dimension:N", title=None, axis=alt.Axis(labelColor=INK2)),
+                color=alt.Color("papers:Q", scale=alt.Scale(scheme="greens"),
+                                legend=alt.Legend(title="papers", labelColor=INK2)),
+                tooltip=["dimension", "evidence", "papers"],
+            ).properties(height=240).configure_view(strokeWidth=0, fill=SURFACE)
+        )
+        st.markdown(f"#### {t['coverage']}")
+        st.altair_chart(chart, width="stretch")
+
+    if len(target_rows):
+        view = target_rows.copy()
+        view["quantity"] = view.quantity.map(q_friendly)
+        view["source"] = view.provenance.map(lambda p: "seed" if p == "seed" else "extracted")
+        st.dataframe(
+            view[["paper_id", "quantity", "value", "unit", "source", "needs_human", "source_location"]]
+            .sort_values(["paper_id", "quantity"]),
+            width="stretch", hide_index=True,
+            column_config={"value": st.column_config.NumberColumn(format="%.4g"),
+                           "source_location": st.column_config.TextColumn("source", width="large")},
+        )
+    else:
+        st.info("No sensory / colour numeric rows yet.")
+
+
+with tab_evidence:
+    st.markdown(f"### {t['evidence_h']}")
+    st.markdown(f'<p class="llead">{t["evidence_n"]}</p>', unsafe_allow_html=True)
+    ev = papers.copy()
+    ev["evidence"] = ev.apply(evidence_class, axis=1)
+    ev["target_dimensions"] = ev.apply(lambda r: ", ".join(dimension_hits(r)) or "context only", axis=1)
+    ev["target_hits"] = ev.target_dimensions.ne("context only")
+
+    em = st.columns(4)
+    em[0].metric(t["core_evidence"], int((ev.evidence == "Core evidence").sum()))
+    em[1].metric(t["transfer_evidence"], int((ev.evidence == "Transfer evidence").sum()))
+    em[2].metric("Core context", int((ev.evidence == "Core context").sum()))
+    em[3].metric("Target-related papers", int(ev.target_hits.sum()))
+
+    counts = ev.groupby(["evidence", "relevance"]).paper_id.nunique().reset_index(name="papers")
+    if len(counts):
+        chart = (
+            alt.Chart(counts).mark_bar(cornerRadiusEnd=4).encode(
+                x=alt.X("papers:Q", title=None, axis=alt.Axis(grid=True, gridColor=RING)),
+                y=alt.Y("evidence:N", title=None, sort="-x", axis=alt.Axis(labelColor=INK2)),
+                color=alt.Color("relevance:N", legend=alt.Legend(title=None, orient="top", labelColor=INK2),
+                                scale=alt.Scale(scheme="tableau10")),
+                tooltip=["evidence", "relevance", "papers"],
+            ).properties(height=260).configure_view(strokeWidth=0, fill=SURFACE)
+        )
+        st.altair_chart(chart, width="stretch")
+
+    show = ev[["paper_id", "year_str", "species", "relevance", "evidence",
+               "target_dimensions", "title", "n_extracted"]].rename(columns={
+                   "paper_id": "paper", "year_str": "year", "target_dimensions": "target dimensions",
+                   "n_extracted": "extracted rows"})
+    st.dataframe(show.sort_values(["evidence", "relevance", "paper"]), width="stretch", hide_index=True)
+
+
+with tab_hypothesis:
+    st.markdown(f"### {t['hyp_h']}")
+    st.markdown(f'<p class="llead">{t["hyp_n"]}</p>', unsafe_allow_html=True)
+    steps = [
+        ("1. Oxidation starts early",
+         "Cell disruption exposes lipids, phenolics, pigments and enzymes. LOX/PPO-style chemistry is the recurring risk signal."),
+        ("2. Sensory defects are measurable",
+         "The corpus now has explicit hooks for aldehydes, hexanal, off-odor/off-flavor scores, chlorophyll and colour coordinates."),
+        ("3. Intervention must be upstream",
+         "Promising routes are rapid pH control, heat/radio-frequency inactivation, antioxidant handling and pigment/phenolic removal."),
+        ("4. Protein quality still constrains the route",
+         "A clean powder is only useful if recovery, purity, solubility and functional performance stay within the target window."),
+    ]
+    cols = st.columns(4)
+    for col, (head, body) in zip(cols, steps):
+        col.markdown(f"**{head}**")
+        col.markdown(body)
+
+    st.divider()
+    hypo = papers.copy()
+    hypo["evidence"] = hypo.apply(evidence_class, axis=1)
+    hypo["target_dimensions"] = hypo.apply(lambda r: ", ".join(dimension_hits(r)) or "", axis=1)
+    hypo = hypo[hypo.target_dimensions.ne("")]
+    if len(hypo):
+        st.markdown("#### Papers supporting the hypothesis")
+        st.dataframe(
+            hypo[["paper_id", "year_str", "species", "relevance", "evidence",
+                  "target_dimensions", "title", "scientific_story"]]
+            .rename(columns={"paper_id": "paper", "year_str": "year",
+                             "target_dimensions": "target dimensions", "scientific_story": "story"})
+            .sort_values(["relevance", "evidence", "paper"]),
+            width="stretch", hide_index=True,
+            column_config={"story": st.column_config.TextColumn(width="large"),
+                           "title": st.column_config.TextColumn(width="large")},
+        )
+
+
 with tab_ex:
     st.markdown(f"### {t['ex_h']}")
     st.warning(t["ex_warn"])
     st.markdown(f'<p class="llead">{t["ex_n"]}</p>', unsafe_allow_html=True)
-    exd = llm_num.copy()
+    exd = extracted_num.copy()
     fx = st.columns([1.6, 1.4, 1])
     exq = fx[0].text_input(t["ex_search"], "", key="ex_q")
     exp = fx[1].multiselect(t["ex_paper"], sorted(exd.paper_id.unique()), key="ex_paper")
@@ -399,7 +584,7 @@ with tab_ex:
         hay = (exd.quantity.fillna("") + " " + exd.paper_id + " "
                + exd.source_location.fillna("")).str.lower()
         exd = exd[hay.str.contains(re.escape(exq.lower()))]
-    st.caption(f"{t['showing']} {len(exd)} {t['of']} {len(llm_num)}")
+    st.caption(f"{t['showing']} {len(exd)} {t['of']} {len(extracted_num)}")
     show = exd[["paper_id", "quantity", "value", "unit", "treatment_condition",
                 "needs_human", "source_location"]].rename(
         columns={"paper_id": "paper", "needs_human": "⚠", "source_location": "source (verbatim)"})
