@@ -1,7 +1,9 @@
 # Locked articles to fetch
 
-Download the main PDF for each article and place the files in `inbox/pdfs/`.
-After the PDFs are there, run `run_ingest_once.bat` or tell Codex to index them.
+Status: all listed PDFs were supplied and indexed on 2026-07-08.
+
+New locked articles will be added here when the search agent finds relevant papers
+without open-access PDFs.
 
 ## 1. Advancements in Pulse Protein Processing
 
