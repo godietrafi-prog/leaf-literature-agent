@@ -1,0 +1,14 @@
+__pycache__/
+*.py[cod]
+.DS_Store
+
+# Bedrock responses are local cache, not deployment data.
+db/bedrock_cache.db
+
+# Text/PDF caches can be rebuilt and are not required by the deployed dashboard.
+db/pdf_text_cache/
+*.pdf
+
+# Local Streamlit/runtime files.
+.streamlit/secrets.toml
+.env

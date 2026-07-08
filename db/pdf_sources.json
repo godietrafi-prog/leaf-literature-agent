@@ -1,0 +1,15 @@
+{
+  "_comment": "citekey -> source PDF (relative to project root). Verified against actual PDF titles 2026-07-08. Paths point at the parent project's user-provided PDFs.",
+  "martin2014_spinach": "../Leaf_Protein_Extraction/literature/pdfs_provided_by_user/jf502905g.pdf",
+  "martin2019_sugarbeet": "../Leaf_Protein_Extraction/literature/pdfs_provided_by_user/J Sci Food Agric - 2018 - Martin - Comparison of the functional properties of RuBisCO protein isolate extracted from sugar.pdf",
+  "cassava_foodchem2023": "../Leaf_Protein_Extraction/literature/pdfs_provided_by_user/1-s2.0-S0308814623024639-main.pdf",
+  "duckweed_pmc2023": "../Leaf_Protein_Extraction/literature/pdfs_provided_by_user/foods-12-03424.pdf",
+  "duckweed_fbt2025": "../Leaf_Protein_Extraction/literature/pdfs_provided_by_user/s11947-025-03777-x.pdf",
+  "moringa_gels2025": "../Leaf_Protein_Extraction/literature/pdfs_provided_by_user/gels-11-00843.pdf",
+  "chaya_leaves": "../Leaf_Protein_Extraction/literature/pdfs_provided_by_user/Use_of_Chaya_Cnidoscolous_chayamansa_Leaves_for_Nu.pdf",
+  "cloverbiorefinery2025": "../Leaf_Protein_Extraction/literature/pdfs_provided_by_user/d5fb00771b.pdf",
+  "radish_fh2025": "../Leaf_Protein_Extraction/literature/pdfs_provided_by_user/1-s2.0-S0268005X25005107-main.pdf",
+  "cauliflower_fbt2026": "../Leaf_Protein_Extraction/literature/pdfs_provided_by_user/s11947-026-04225-0.pdf",
+  "sugarbeet_rijken2025": "../Leaf_Protein_Extraction/literature/pdfs_provided_by_user/1-s2.0-S0378429025004800-main.pdf",
+  "mandal2026_ml_functional_performance": "../Leaf_Protein_Extraction/literature/pdfs_provided_by_user/Proteins - 2026 - Mandal - A Machine Learning Approach to Predict Functional Performance From Measurable Protein Structural.pdf"
+}
