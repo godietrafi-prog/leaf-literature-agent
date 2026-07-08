@@ -40,139 +40,122 @@ RING = "#d9e3dc"
 
 st.set_page_config(page_title="Leaf Literature Agent", page_icon="🌿", layout="wide")
 
-# ── i18n ──────────────────────────────────────────────────────────────────────
-T = {
-    "en": {
-        "title": "Leaf Literature Agent",
-        "tagline": "A live, queryable knowledge base on leaf-protein extraction and the removal "
-                   "of off-odor, off-flavor and green color — LOX mechanism at its core.",
-        "phase": "Phase 1 · seed corpus · SQLite live",
-        "refresh": "↻ Refresh from DB",
-        "k_papers": "Papers", "k_numeric": "Numeric results", "k_flag": "Need verification",
-        "k_species": "Species", "k_full": "Full-text / +SI", "k_ai": "AI / ML papers",
-        "k_extracted": "Extracted (unverified)",
-        "k_extracted_help": "Numeric values auto-extracted from PDFs by Claude (Bedrock). Every value carries a verbatim source quote; NOT yet human-verified.",
-        "tab_overview": "Overview", "tab_corpus": "Corpus", "tab_ai": "AI / ML methods",
-        "tab_extracted": "Extracted data", "tab_cats": "Topic coverage",
-        "ex_h": "LLM-extracted numeric results",
-        "ex_warn": "⚠ UNVERIFIED — auto-extracted by Claude from the source PDFs and awaiting human spot-check. The curated seed values (Overview tab) are the reference; these are the full harvest, every value traceable to a verbatim quote.",
-        "ex_n": "Each row is one numeric value the model found in a paper, with its verbatim source location. Filter, then verify against the PDF using the quote.",
-        "ex_search": "Search quantity / paper / quote", "ex_paper": "Paper",
-        "ex_only_flag": "only ⚠ needs-verify",
-        "note_purity": "⚑ What 'purity %' means here: it is the protein CONTENT of the powder — one axis only. The project's real target is a CLEAN POWDER — minimum off-odor, off-flavor, and green color. Those sensory & color goals matter more than protein % alone; track their (sparse) coverage in the Gaps & target tab.",
-        "tab_normalize": "Cross-study", "tab_verify": "Verify", "tab_gaps": "Gaps & target",
-        "tab_compare": "Compare / query",
-        "norm_h": "Cross-study comparison (normalization)",
-        "norm_n": "Pick a measured quantity → every value for it across all studies, aligned to one unit so they are comparable — the 'learnable matrix'. Seed = curated; extracted = auto (unverified).",
-        "norm_pick": "Quantity", "norm_unit": "Units seen", "norm_learnable": "studies covering this quantity",
-        "ver_h": "Verification workbench",
-        "ver_n": "The action path for flagged values. Edit a value in place, tick ✓ verified, add a note — then Save writes back to db/leaf_lit.db. This is how the AI-built numbers become human-verified gold.",
-        "ver_scope": "Show", "ver_flagged": "only needs-verify / unverified", "ver_all": "all",
-        "ver_save": "💾 Save changes to DB", "ver_saved": "Saved. Reloading…", "ver_none": "Nothing to verify with the current filter.",
-        "gaps_h": "Coverage & gaps — including the real (sensory) target",
-        "gaps_n": "Where is the corpus thin? Rows = species, columns = outcome. Empty / low cells are gaps to fill. The sensory/color columns (off_odor, off_flavor, color) are the project's actual goal — and are visibly the least covered.",
-        "gaps_sensory": "Sensory & color target coverage (the real goal, not protein %)",
-        "cmp_h": "Compare studies", "cmp_pick": "Pick 2–4 papers to compare",
-        "cmp_n": "Line up methods and numbers side by side.",
-        "qry_h": "Query the numeric matrix",
-        "qry_n": "Build a filtered, analysable table across all studies — then download it.",
-        "qry_prov": "Source", "qry_dl": "⬇ Download CSV",
-        "ver_how": "**How to verify — you are confirming numbers the AI already extracted, not hunting for missing data:** ① note the **paper**; ② read the **source (verbatim)** column — it quotes the exact table / section the number came from; ③ open that paper's PDF and find it; ④ if correct, tick **✓ verified**; if wrong, type the **corrected value** + a note; ⑤ press **Save**.",
-        "ver_pdf": "PDF to open",
-        "norm_sensory_only": "👃 only sensory / colour parameters (the real target)",
-        "norm_none": "No parameter matches. Uncheck the sensory filter.",
-        "norm_is_sensory": "sensory / colour — the project's real target",
-        "norm_thin": "⚠ Only one study reports this — too thin for a cross-study comparison yet (this is exactly the kind of gap the Gaps tab surfaces).",
-        "ro_banner": "🔒 Read-only shared view. Browsing, charts, and CSV export work; editing & verification happen on the local instance (to protect the data).",
-        "purity_h": "Protein purity across the corpus",
-        "purity_n": "Each bar is one study's best reported purity. Amber = parsed from a narrative "
-                    "note, flagged for human verification (never trusted blindly).",
-        "yield_h": "Extraction yield across the corpus",
-        "yield_n": "The purity–yield trade-off is visible: the purest routes rarely give the highest yield.",
-        "filters": "Filters", "f_species": "Species", "f_rel": "Relevance",
-        "f_flag": "Only papers with a needs-verify value", "f_search": "Search title / species / method",
-        "showing": "Showing", "of": "of", "papers": "papers",
-        "story": "Scientific story", "findings": "Findings", "tags": "Topic tags", "open": "open details",
-        "ai_intro": "Papers whose **reported method is a machine-learning, deep-learning, digital-twin, "
-                    "or statistical-optimization approach** — in leaf protein or in an analogous food "
-                    "system whose method transfers to leaf-protein purification. Each card states the "
-                    "transfer logic (why an off-topic system still informs this project).",
-        "ai_core": "Machine learning · deep learning · digital twins",
-        "ai_core_n": "The AI-sensing / AI-modeling precedents. None are about leaf protein — they prove "
-                     "the *method* works in a comparable food problem.",
-        "ai_other": "Other computational methods (optimization · proteomics)",
-        "ai_other_n": "Statistical process optimization (DOE / RSM) and proteomic characterization — "
-                      "computational, but not AI-sensing precedents.",
-        "technique": "Technique", "system": "System (not leaf protein)", "transfer": "Why it transfers",
-        "no_rows": "No papers match these filters.",
-        "cats_h": "Topic coverage", "cats_n": "The controlled vocabulary that makes the corpus queryable.",
-        "prov": "Every number traces to a paper_id · nothing fabricated · null ≠ zero",
-        "reported": "reported value", "needs": "needs verify",
-    },
-    "he": {
-        "title": "סוכן ספרות עלים",
-        "tagline": "בסיס ידע חי וניתן-לשאילתה על מיצוי חלבון עלים והסרת ריח, טעם וצבע ירוק — מנגנון LOX בליבה.",
-        "phase": "שלב 1 · קורפוס seed · SQLite חי",
-        "refresh": "↻ רענן מה-DB",
-        "k_papers": "מאמרים", "k_numeric": "תוצאות מספריות", "k_flag": "דורשים אימות",
-        "k_species": "מינים", "k_full": "טקסט מלא / +SI", "k_ai": "מאמרי AI/ML",
-        "k_extracted": "חולצו (לא מאומת)",
-        "k_extracted_help": "ערכים מספריים שחולצו אוטומטית מ-PDF ע\"י Claude (Bedrock). לכל ערך ציטוט-מקור מילולי; טרם אומת אנושית.",
-        "tab_overview": "סקירה", "tab_corpus": "קורפוס", "tab_ai": "שיטות AI/ML",
-        "tab_extracted": "נתונים שחולצו", "tab_cats": "כיסוי נושאי",
-        "ex_h": "תוצאות מספריות שחולצו ע\"י LLM",
-        "ex_warn": "⚠ לא מאומת — חולץ אוטומטית ע\"י Claude מה-PDF וממתין לבדיקה אנושית. ערכי ה-seed (טאב סקירה) הם הייחוס; אלה היבול המלא, כל ערך עקיב לציטוט מילולי.",
-        "ex_n": "כל שורה = ערך מספרי אחד שהמודל מצא במאמר, עם מיקום-המקור המילולי. סננו, ואמתו מול ה-PDF בעזרת הציטוט.",
-        "ex_search": "חיפוש כמות / מאמר / ציטוט", "ex_paper": "מאמר",
-        "ex_only_flag": "רק ⚠ דורש-אימות",
-        "note_purity": "⚑ מה זה 'טוהר %' כאן: זה תוכן-החלבון של האבקה — ציר אחד בלבד. יעד-האמת של הפרויקט הוא אבקה נקייה — מינימום ריח, טעם וצבע ירוק. היעדים החושיים/צבע האלה חשובים יותר מאחוז-חלבון לבדו; ראו את הכיסוי (הדליל) שלהם בטאב 'פערים ויעד'.",
-        "tab_normalize": "בין-מחקרי", "tab_verify": "אימות", "tab_gaps": "פערים ויעד",
-        "tab_compare": "השוואה / שאילתה",
-        "norm_h": "השוואה בין-מחקרית (נורמליזציה)",
-        "norm_n": "בחרו כמות נמדדת → כל הערכים שלה מכל המחקרים, מאוחדים ליחידה אחת כדי שיהיו ברי-השוואה — ה'מטריצה בת-הלמידה'. seed = אנושי; extracted = אוטו (לא מאומת).",
-        "norm_pick": "כמות", "norm_unit": "יחידות שנצפו", "norm_learnable": "מחקרים המכסים את הכמות",
-        "ver_h": "שולחן-אימות",
-        "ver_n": "מסלול-הפעולה לערכים מסומנים. ערכו ערך במקום, סמנו ✓ אומת, הוסיפו הערה — ואז שמירה כותבת חזרה ל-db/leaf_lit.db. כך המספרים שה-AI בנה הופכים ל-gold מאומת-אנושית.",
-        "ver_scope": "הצג", "ver_flagged": "רק דורש-אימות / לא-מאומת", "ver_all": "הכל",
-        "ver_save": "💾 שמור שינויים ל-DB", "ver_saved": "נשמר. טוען מחדש…", "ver_none": "אין מה לאמת בסינון הנוכחי.",
-        "gaps_h": "כיסוי ופערים — כולל יעד-האמת (החושי)",
-        "gaps_n": "איפה הקורפוס דליל? שורות = מין, עמודות = תוצאה. תאים ריקים/נמוכים = פערים למלא. עמודות החישה/צבע (off_odor, off_flavor, color) הן יעד-האמת של הפרויקט — ורואים שהן הכי פחות מכוסות.",
-        "gaps_sensory": "כיסוי יעד החישה והצבע (המטרה האמיתית, לא אחוז-חלבון)",
-        "cmp_h": "השוואת מחקרים", "cmp_pick": "בחרו 2–4 מאמרים להשוואה",
-        "cmp_n": "יישרו שיטות ומספרים זה לצד זה.",
-        "qry_h": "שאילתה על מטריצת המספרים",
-        "qry_n": "בנו טבלה מסוננת ובת-ניתוח על כל המחקרים — ואז הורידו אותה.",
-        "qry_prov": "מקור", "qry_dl": "⬇ הורד CSV",
-        "ver_how": "**איך מאמתים — אתם מאשרים מספרים שה-AI כבר חילץ, לא מחפשים מידע חסר:** ① שימו לב ל**מאמר**; ② קראו את עמודת **source (verbatim)** — היא מצטטת את הטבלה/הסעיף המדויק שממנו נלקח המספר; ③ פתחו את ה-PDF של אותו מאמר ומצאו אותו; ④ אם נכון — סמנו **✓ verified**; אם שגוי — הקלידו **corrected value** + הערה; ⑤ לחצו **Save**.",
-        "ver_pdf": "PDF לפתיחה",
-        "norm_sensory_only": "👃 רק פרמטרים חושיים / צבע (יעד-האמת)",
-        "norm_none": "אין פרמטר תואם. בטלו את סינון-החישה.",
-        "norm_is_sensory": "חושי / צבע — יעד-האמת של הפרויקט",
-        "norm_thin": "⚠ רק מחקר אחד מדווח על זה — דליל מדי להשוואה בין-מחקרית בשלב זה (בדיוק הפער שטאב 'פערים' מציף).",
-        "ro_banner": "🔒 תצוגת-שיתוף לקריאה-בלבד. עיון, גרפים והורדת CSV עובדים; עריכה ואימות נעשים במופע המקומי (כדי להגן על הדאטה).",
-        "purity_h": "טוהר חלבון לאורך הקורפוס",
-        "purity_n": "כל עמודה = ערך הטוהר הטוב ביותר במאמר. ענבר = חולץ מטקסט נרטיבי, מסומן לאימות אנושי.",
-        "yield_h": "תפוקת מיצוי לאורך הקורפוס",
-        "yield_n": "הפשרה טוהר–תפוקה גלויה: המסלולים הטהורים ביותר נדיר שנותנים תפוקה גבוהה.",
-        "filters": "מסננים", "f_species": "מין", "f_rel": "רלוונטיות",
-        "f_flag": "רק מאמרים עם ערך דורש-אימות", "f_search": "חיפוש כותרת / מין / שיטה",
-        "showing": "מוצגים", "of": "מתוך", "papers": "מאמרים",
-        "story": "סיפור מדעי", "findings": "ממצאים", "tags": "תיוגים", "open": "פרטים",
-        "ai_intro": "מאמרים שבהם **השיטה המדווחת היא למידת מכונה, למידה עמוקה, תאום דיגיטלי או אופטימיזציה "
-                    "סטטיסטית** — בחלבון עלים או במערכת מזון אנלוגית שהשיטה שלה ניתנת-להשלכה על טיהור חלבון עלים. "
-                    "כל כרטיס מסביר את הגיון-ההשלכה.",
-        "ai_core": "למידת מכונה · למידה עמוקה · תאומים דיגיטליים",
-        "ai_core_n": "תקדימי AI-חישה / AI-מידול. אף אחד אינו על חלבון עלים — הם מוכיחים שה*שיטה* עובדת בבעיית מזון דומה.",
-        "ai_other": "שיטות חישוביות אחרות (אופטימיזציה · פרוטאומיקה)",
-        "ai_other_n": "אופטימיזציית תהליך סטטיסטית (DOE/RSM) ואפיון פרוטאומי — חישובי, אך לא תקדים AI-חישה.",
-        "technique": "טכניקה", "system": "מערכת (לא חלבון עלים)", "transfer": "מדוע ניתן להשליך",
-        "no_rows": "אין מאמרים שתואמים את הסינון.",
-        "cats_h": "כיסוי נושאי", "cats_n": "אוצר המילים המבוקר שהופך את הקורפוס לניתן-לשאילתה.",
-        "prov": "כל מספר עקיב ל-paper_id · שום דבר לא הומצא · null ≠ אפס",
-        "reported": "ערך מדווח", "needs": "דורש אימות",
-    },
-}
-
+# ── copy ──────────────────────────────────────────────────────────────────────
+T = {'title': 'Leaf Literature Agent',
+ 'tagline': 'A live, queryable knowledge base on leaf-protein extraction and the removal of '
+            'off-odor, off-flavor and green color — LOX mechanism at its core.',
+ 'phase': 'Phase 1 · seed corpus · SQLite live',
+ 'refresh': '↻ Refresh from DB',
+ 'k_papers': 'Papers',
+ 'k_numeric': 'Numeric results',
+ 'k_flag': 'Need verification',
+ 'k_species': 'Species',
+ 'k_full': 'Full-text / +SI',
+ 'k_ai': 'AI / ML papers',
+ 'k_extracted': 'Extracted (unverified)',
+ 'k_extracted_help': 'Numeric values auto-extracted from PDFs by Claude (Bedrock). Every value '
+                     'carries a verbatim source quote; NOT yet human-verified.',
+ 'tab_overview': 'Overview',
+ 'tab_corpus': 'Corpus',
+ 'tab_ai': 'AI / ML methods',
+ 'tab_extracted': 'Extracted data',
+ 'tab_cats': 'Topic coverage',
+ 'ex_h': 'LLM-extracted numeric results',
+ 'ex_warn': '⚠ UNVERIFIED — auto-extracted by Claude from the source PDFs and awaiting human '
+            'spot-check. The curated seed values (Overview tab) are the reference; these are the '
+            'full harvest, every value traceable to a verbatim quote.',
+ 'ex_n': 'Each row is one numeric value the model found in a paper, with its verbatim source '
+         'location. Filter, then verify against the PDF using the quote.',
+ 'ex_search': 'Search quantity / paper / quote',
+ 'ex_paper': 'Paper',
+ 'ex_only_flag': 'only ⚠ needs-verify',
+ 'note_purity': "⚑ What 'purity %' means here: it is the protein CONTENT of the powder — one axis "
+                "only. The project's real target is a CLEAN POWDER — minimum off-odor, off-flavor, "
+                'and green color. Those sensory & color goals matter more than protein % alone; '
+                'track their (sparse) coverage in the Gaps & target tab.',
+ 'tab_normalize': 'Cross-study',
+ 'tab_verify': 'Verify',
+ 'tab_gaps': 'Gaps & target',
+ 'tab_compare': 'Compare / query',
+ 'norm_h': 'Cross-study comparison (normalization)',
+ 'norm_n': 'Pick a measured quantity → every value for it across all studies, aligned to one unit '
+           "so they are comparable — the 'learnable matrix'. Seed = curated; extracted = auto "
+           '(unverified).',
+ 'norm_pick': 'Quantity',
+ 'norm_unit': 'Units seen',
+ 'norm_learnable': 'studies covering this quantity',
+ 'ver_h': 'Verification workbench',
+ 'ver_n': 'The action path for flagged values. Edit a value in place, tick ✓ verified, add a note '
+          '— then Save writes back to db/leaf_lit.db. This is how the AI-built numbers become '
+          'human-verified gold.',
+ 'ver_scope': 'Show',
+ 'ver_flagged': 'only needs-verify / unverified',
+ 'ver_all': 'all',
+ 'ver_save': '💾 Save changes to DB',
+ 'ver_saved': 'Saved. Reloading…',
+ 'ver_none': 'Nothing to verify with the current filter.',
+ 'gaps_h': 'Coverage & gaps — including the real (sensory) target',
+ 'gaps_n': 'Where is the corpus thin? Rows = species, columns = outcome. Empty / low cells are '
+           'gaps to fill. The sensory/color columns (off_odor, off_flavor, color) are the '
+           "project's actual goal — and are visibly the least covered.",
+ 'gaps_sensory': 'Sensory & color target coverage (the real goal, not protein %)',
+ 'cmp_h': 'Compare studies',
+ 'cmp_pick': 'Pick 2–4 papers to compare',
+ 'cmp_n': 'Line up methods and numbers side by side.',
+ 'qry_h': 'Query the numeric matrix',
+ 'qry_n': 'Build a filtered, analysable table across all studies — then download it.',
+ 'qry_prov': 'Source',
+ 'qry_dl': '⬇ Download CSV',
+ 'ver_how': '**How to verify — you are confirming numbers the AI already extracted, not hunting '
+            'for missing data:** ① note the **paper**; ② read the **source (verbatim)** column — '
+            "it quotes the exact table / section the number came from; ③ open that paper's PDF and "
+            'find it; ④ if correct, tick **✓ verified**; if wrong, type the **corrected value** + '
+            'a note; ⑤ press **Save**.',
+ 'ver_pdf': 'PDF to open',
+ 'norm_sensory_only': '👃 only sensory / colour parameters (the real target)',
+ 'norm_none': 'No parameter matches. Uncheck the sensory filter.',
+ 'norm_is_sensory': "sensory / colour — the project's real target",
+ 'norm_thin': '⚠ Only one study reports this — too thin for a cross-study comparison yet (this is '
+              'exactly the kind of gap the Gaps tab surfaces).',
+ 'ro_banner': '🔒 Read-only shared view. Browsing, charts, and CSV export work; editing & '
+              'verification happen on the local instance (to protect the data).',
+ 'purity_h': 'Protein purity across the corpus',
+ 'purity_n': "Each bar is one study's best reported purity. Amber = parsed from a narrative note, "
+             'flagged for human verification (never trusted blindly).',
+ 'yield_h': 'Extraction yield across the corpus',
+ 'yield_n': 'The purity–yield trade-off is visible: the purest routes rarely give the highest '
+            'yield.',
+ 'filters': 'Filters',
+ 'f_species': 'Species',
+ 'f_rel': 'Relevance',
+ 'f_flag': 'Only papers with a needs-verify value',
+ 'f_search': 'Search title / species / method',
+ 'showing': 'Showing',
+ 'of': 'of',
+ 'papers': 'papers',
+ 'story': 'Scientific story',
+ 'findings': 'Findings',
+ 'tags': 'Topic tags',
+ 'open': 'open details',
+ 'ai_intro': 'Papers whose **reported method is a machine-learning, deep-learning, digital-twin, '
+             'or statistical-optimization approach** — in leaf protein or in an analogous food '
+             'system whose method transfers to leaf-protein purification. Each card states the '
+             'transfer logic (why an off-topic system still informs this project).',
+ 'ai_core': 'Machine learning · deep learning · digital twins',
+ 'ai_core_n': 'The AI-sensing / AI-modeling precedents. None are about leaf protein — they prove '
+              'the *method* works in a comparable food problem.',
+ 'ai_other': 'Other computational methods (optimization · proteomics)',
+ 'ai_other_n': 'Statistical process optimization (DOE / RSM) and proteomic characterization — '
+               'computational, but not AI-sensing precedents.',
+ 'technique': 'Technique',
+ 'system': 'System (not leaf protein)',
+ 'transfer': 'Why it transfers',
+ 'no_rows': 'No papers match these filters.',
+ 'cats_h': 'Topic coverage',
+ 'cats_n': 'The controlled vocabulary that makes the corpus queryable.',
+ 'prov': 'Every number traces to a paper_id · nothing fabricated · null ≠ zero',
+ 'reported': 'reported value',
+ 'needs': 'needs verify'}
 TECH_LABEL = {
     "deep_learning": "Deep learning", "ML": "Machine learning", "digital_twin": "Digital twin",
     "DOE_RSM": "DOE / RSM", "proteomics": "Proteomics",
@@ -217,6 +200,12 @@ def q_friendly(q: str) -> str:
 def q_is_sensory(q: str) -> bool:
     ql = (q or "").lower()
     return any(k in ql for k in _SENSORY_KW)
+
+
+def clean_text(value) -> str:
+    if value is None or pd.isna(value):
+        return ""
+    return str(value)
 
 
 # ── data ──────────────────────────────────────────────────────────────────────
@@ -302,12 +291,10 @@ st.markdown(f"""
 </style>
 """, unsafe_allow_html=True)
 
-# ── sidebar: language + refresh ───────────────────────────────────────────────
+# ── sidebar: refresh ──────────────────────────────────────────────────────────
+t = T
 with st.sidebar:
-    st.markdown("### 🌿 Leaf Literature Agent")
-    lang = st.radio("Language / שפה", ["en", "he"], format_func=lambda x: "English" if x == "en" else "עברית",
-                    horizontal=True)
-    t = T[lang]
+    st.markdown("### Leaf Literature Agent")
     if st.button(t["refresh"], width="stretch"):
         st.cache_data.clear()
         st.rerun()
@@ -316,12 +303,11 @@ with st.sidebar:
     if READ_ONLY:
         st.caption("🔒 read-only shared view")
 
-rtl = "direction:rtl;text-align:right;" if lang == "he" else ""
 
 # ── header ────────────────────────────────────────────────────────────────────
 st.markdown(f'<div class="eyebrow">Leaf Protein · Literature Intelligence</div>', unsafe_allow_html=True)
 st.markdown(f"# {t['title']}")
-st.markdown(f'<p class="llead" style="{rtl}">{t["tagline"]}</p>', unsafe_allow_html=True)
+st.markdown(f'<p class="llead">{t["tagline"]}</p>', unsafe_allow_html=True)
 
 seed_num = numeric[numeric.provenance == "seed"]
 llm_num = numeric[numeric.provenance.str.startswith("llm:")]
@@ -373,17 +359,17 @@ def bar_chart(df, quantity, title):
 with tab_ov:
     st.info(t["note_purity"])
     st.markdown(f"#### {t['purity_h']}")
-    st.markdown(f'<p class="llead" style="{rtl}">{t["purity_n"]}</p>', unsafe_allow_html=True)
+    st.markdown(f'<p class="llead">{t["purity_n"]}</p>', unsafe_allow_html=True)
     st.altair_chart(bar_chart(seed_num, "protein_purity_pct", t["purity_h"]), width="stretch")
     st.markdown(f"#### {t['yield_h']}")
-    st.markdown(f'<p class="llead" style="{rtl}">{t["yield_n"]}</p>', unsafe_allow_html=True)
+    st.markdown(f'<p class="llead">{t["yield_n"]}</p>', unsafe_allow_html=True)
     st.altair_chart(bar_chart(seed_num, "yield_pct", t["yield_h"]), width="stretch")
 
 
 with tab_ex:
     st.markdown(f"### {t['ex_h']}")
     st.warning(t["ex_warn"])
-    st.markdown(f'<p class="llead" style="{rtl}">{t["ex_n"]}</p>', unsafe_allow_html=True)
+    st.markdown(f'<p class="llead">{t["ex_n"]}</p>', unsafe_allow_html=True)
     exd = llm_num.copy()
     fx = st.columns([1.6, 1.4, 1])
     exq = fx[0].text_input(t["ex_search"], "", key="ex_q")
@@ -455,17 +441,17 @@ with tab_corpus:
                 st.markdown(f"**{t['findings']}**")
                 st.markdown(f'<div style="max-height:280px;overflow:auto;color:{INK2};font-size:.86rem;'
                             f'white-space:pre-wrap">{p.key_findings}</div>', unsafe_allow_html=True)
-            meta = " · ".join(x for x in [f"doi: {p.doi}" if p.doi else "", p.source_type or ""] if x)
+            meta = " · ".join(x for x in [f"doi: {clean_text(p.doi)}" if clean_text(p.doi) else "", clean_text(p.source_type)] if x)
             if meta:
                 st.caption(meta)
 
 
 with tab_ai:
-    st.markdown(f'<p class="llead" style="{rtl}">{t["ai_intro"]}</p>', unsafe_allow_html=True)
+    st.markdown(f'<p class="llead">{t["ai_intro"]}</p>', unsafe_allow_html=True)
 
     def ai_card(p):
         techs = "  ".join(f'<span class="chip tech">{TECH_LABEL.get(x, x)}</span>' for x in p.analysis)
-        st.markdown(f"""<div class="aicard" style="{rtl}">
+        st.markdown(f"""<div class="aicard">
            <div style="font-family:ui-monospace,Menlo,monospace;color:{INK}">{p.paper_id}
              <span style="color:{INK2}">· {p.year_str}</span></div>
            <div style="margin:6px 0">{techs}
@@ -478,20 +464,20 @@ with tab_ai:
                    ~papers.paper_id.isin(core.paper_id)]
 
     st.markdown(f"### {t['ai_core']}")
-    st.markdown(f'<p class="llead" style="{rtl}">{t["ai_core_n"]}</p>', unsafe_allow_html=True)
+    st.markdown(f'<p class="llead">{t["ai_core_n"]}</p>', unsafe_allow_html=True)
     for _, p in core.sort_values("paper_id").iterrows():
         ai_card(p)
 
     if len(other):
         st.markdown(f"### {t['ai_other']}")
-        st.markdown(f'<p class="llead" style="{rtl}">{t["ai_other_n"]}</p>', unsafe_allow_html=True)
+        st.markdown(f'<p class="llead">{t["ai_other_n"]}</p>', unsafe_allow_html=True)
         for _, p in other.sort_values("paper_id").iterrows():
             ai_card(p)
 
 
 with tab_cats:
     st.markdown(f"### {t['cats_h']}")
-    st.markdown(f'<p class="llead" style="{rtl}">{t["cats_n"]}</p>', unsafe_allow_html=True)
+    st.markdown(f'<p class="llead">{t["cats_n"]}</p>', unsafe_allow_html=True)
     cc = cats.copy()
     cc["group"] = cc.category.str.split(":").str[0]
     counts = cc.category.value_counts().reset_index()
@@ -514,7 +500,7 @@ with tab_cats:
 
 with tab_norm:
     st.markdown(f"### {t['norm_h']}")
-    st.markdown(f'<p class="llead" style="{rtl}">{t["norm_n"]}</p>', unsafe_allow_html=True)
+    st.markdown(f'<p class="llead">{t["norm_n"]}</p>', unsafe_allow_html=True)
     # study-count per quantity, shown at selection time (so a 1-study parameter is obvious)
     qcounts = numeric.groupby("quantity").paper_id.nunique().to_dict()
     only_sensory = st.checkbox(t["norm_sensory_only"], key="norm_sens")
@@ -554,7 +540,7 @@ with tab_norm:
 
 with tab_verify:
     st.markdown(f"### {t['ver_h']}")
-    st.markdown(f'<p class="llead" style="{rtl}">{t["ver_n"]}</p>', unsafe_allow_html=True)
+    st.markdown(f'<p class="llead">{t["ver_n"]}</p>', unsafe_allow_html=True)
     st.info(t["ver_how"])
     if READ_ONLY:
         st.warning(t["ro_banner"])
@@ -625,7 +611,7 @@ with tab_verify:
 
 with tab_gaps:
     st.markdown(f"### {t['gaps_h']}")
-    st.markdown(f'<p class="llead" style="{rtl}">{t["gaps_n"]}</p>', unsafe_allow_html=True)
+    st.markdown(f'<p class="llead">{t["gaps_n"]}</p>', unsafe_allow_html=True)
     outc = cats[cats.category.str.startswith("outcome:")].copy()
     outc["outcome"] = outc.category.str.split(":").str[1]
     m = outc.merge(papers[["paper_id", "species"]], on="paper_id")
@@ -661,7 +647,7 @@ with tab_compare:
             st.dataframe(piv, width="stretch")
     st.divider()
     st.markdown(f"### {t['qry_h']}")
-    st.markdown(f'<p class="llead" style="{rtl}">{t["qry_n"]}</p>', unsafe_allow_html=True)
+    st.markdown(f'<p class="llead">{t["qry_n"]}</p>', unsafe_allow_html=True)
     qc = st.columns(3)
     qq = qc[0].multiselect(t["norm_pick"], sorted(numeric.quantity.dropna().unique()))
     qs = qc[1].multiselect(t["f_species"], sorted(numeric.species.dropna().unique()))
@@ -683,5 +669,5 @@ with tab_compare:
                        "leaf_query.csv", "text/csv")
 
 
-st.markdown(f'<div class="foot" style="{rtl}">{t["prov"]} · db/leaf_lit.db · schema v1</div>',
+st.markdown(f'<div class="foot">{t["prov"]} · db/leaf_lit.db · schema v1</div>',
             unsafe_allow_html=True)
