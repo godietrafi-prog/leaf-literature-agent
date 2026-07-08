@@ -28,14 +28,15 @@ import streamlit as st
 
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "db", "leaf_lit.db")
 
-# ── palette (matches the Artifact preview; validated on dark surface) ──────────
-ACCENT = "#2fe0a0"
-CYAN = "#38bdf8"
-AMBER = "#f5b544"
-INK = "#e8f2ec"
-INK2 = "#9fb4aa"
-SURFACE = "#0f1613"
-RING = "#22302a"
+# ── palette: quiet work-focused light UI ──────────────────────────────────────
+ACCENT = "#167a55"
+CYAN = "#2563eb"
+AMBER = "#b7791f"
+INK = "#17231d"
+INK2 = "#5f6f66"
+SURFACE = "#ffffff"
+CANVAS = "#f7faf7"
+RING = "#d9e3dc"
 
 st.set_page_config(page_title="Leaf Literature Agent", page_icon="🌿", layout="wide")
 
@@ -276,16 +277,18 @@ ensure_cols()
 mtime = os.path.getmtime(DB_PATH) if os.path.exists(DB_PATH) else 0.0
 papers, numeric, cats = load(mtime)
 
-# ── global CSS (sci-fi dark-neon polish on top of the theme) ─────────────────
+# ── global CSS ────────────────────────────────────────────────────────────────
 st.markdown(f"""
 <style>
-  .block-container {{padding-top:2.2rem;max-width:1400px}}
+  .stApp {{background:{CANVAS}}}
+  header[data-testid="stHeader"] {{background:{CANVAS};box-shadow:0 1px 0 {RING}}}
+  .block-container {{padding-top:4.4rem;max-width:1400px}}
   h1,h2,h3 {{letter-spacing:-.01em}}
   .llead {{color:{INK2};font-size:.95rem;max-width:70ch}}
   .eyebrow {{font-family:ui-monospace,Menlo,monospace;font-size:.72rem;letter-spacing:.18em;
-     text-transform:uppercase;color:{AMBER}}}
+     text-transform:uppercase;color:{AMBER};margin-bottom:.35rem}}
   div[data-testid="stMetric"] {{background:{SURFACE};border:1px solid {RING};border-radius:14px;
-     padding:14px 16px}}
+     padding:14px 16px;box-shadow:0 1px 2px rgba(15,23,42,.04)}}
   div[data-testid="stMetricValue"] {{font-variant-numeric:tabular-nums}}
   .chip {{display:inline-block;font-family:ui-monospace,Menlo,monospace;font-size:.68rem;
      padding:2px 9px;border-radius:999px;border:1px solid {RING};color:{INK2};margin:2px 4px 2px 0}}
