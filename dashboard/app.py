@@ -22,7 +22,6 @@ import os
 import re
 import sqlite3
 from datetime import date
-from urllib.parse import quote_plus
 
 import altair as alt
 import pandas as pd
@@ -155,16 +154,6 @@ T = {'title': 'Leaf Literature Agent',
  'technique': 'Technique',
  'system': 'System (not leaf protein)',
  'transfer': 'Why it transfers',
- 'ai_done': 'What was done',
- 'ai_relevance': 'Why it matters for this project',
- 'ai_findings': 'Reported findings',
- 'ai_evidence': 'Evidence status',
- 'ai_values': 'Measured / extracted values',
- 'ai_values_n': 'Values currently stored for this paper. Auto-extracted rows remain unverified '
-                'until checked against the quoted source location.',
- 'ai_no_values': 'No numeric results are currently stored for this paper.',
- 'ai_doi': 'Open DOI',
- 'ai_scholar': 'Search title in Google Scholar',
  'no_rows': 'No papers match these filters.',
  'cats_h': 'Topic coverage',
  'cats_n': 'The controlled vocabulary that makes the corpus queryable.',
@@ -662,85 +651,17 @@ with tab_ai:
     st.markdown(f'<p class="llead">{t["ai_intro"]}</p>', unsafe_allow_html=True)
 
     def ai_card(p):
-        title = clean_text(p.title) or p.paper_id
-        year = f" · {p.year_str}" if p.year_str else ""
-        with st.expander(f"{title}{year}"):
-            techs = "  ".join(
-                f'<span class="chip tech">{TECH_LABEL.get(x, x)}</span>' for x in p.analysis)
-            if techs:
-                st.markdown(techs, unsafe_allow_html=True)
-
-            authors = clean_text(p.authors)
-            venue = clean_text(p.venue)
-            if authors:
-                st.markdown(f"**Authors:** {authors}")
-            if venue:
-                st.markdown(f"**Venue:** {venue}")
-
-            links = []
-            doi = clean_text(p.doi).strip()
-            # Some legacy cluster rows contain prose after a DOI. Only create a DOI
-            # link when the field itself is one clean identifier.
-            if re.fullmatch(r"10\.\d{4,9}/\S+", doi, flags=re.I):
-                links.append(f"[{t['ai_doi']}](https://doi.org/{doi})")
-            links.append(
-                f"[{t['ai_scholar']}](https://scholar.google.com/scholar?q={quote_plus(title)})")
-            st.markdown(" · ".join(links))
-
-            st.markdown(f"#### {t['ai_done']}")
-            done = []
-            system = clean_text(p.system)
-            method_family = clean_text(p.extraction_method_family)
-            if system:
-                done.append(f"**System / material:** {system}")
-            if method_family:
-                done.append(f"**Reported approach:** {method_family}")
-            paper_num = numeric[numeric.paper_id == p.paper_id]
-            measured_methods = sorted({clean_text(x).strip() for x in paper_num.method if clean_text(x).strip()})
-            if measured_methods:
-                shown = ", ".join(measured_methods[:12])
-                if len(measured_methods) > 12:
-                    shown += f" (+{len(measured_methods) - 12} more)"
-                done.append(f"**Methods represented in extracted results:** {shown}")
-            if done:
-                st.markdown("\n\n".join(done))
-            else:
-                st.caption("The database does not yet contain a detailed method description.")
-
-            story = clean_text(p.scientific_story)
-            if story:
-                st.markdown(f"#### {t['ai_relevance']}")
-                st.markdown(story)
-
-            findings = clean_text(p.key_findings)
-            if findings:
-                st.markdown(f"#### {t['ai_findings']}")
-                st.markdown(findings)
-
-            evidence = " · ".join(filter(None, [
-                f"verification: {clean_text(p.verification_level)}" if clean_text(p.verification_level) else "",
-                f"access: {clean_text(p.access_status)}" if clean_text(p.access_status) else "",
-                f"source: {clean_text(p.source_type)}" if clean_text(p.source_type) else "",
-                f"paper_id: {p.paper_id}",
-            ]))
-            st.markdown(f"#### {t['ai_evidence']}")
-            st.caption(evidence)
-
-            st.markdown(f"#### {t['ai_values']}")
-            if paper_num.empty:
-                st.info(t["ai_no_values"])
-            else:
-                st.caption(f"{len(paper_num)} rows · {t['ai_values_n']}")
-                value_cols = [
-                    "quantity", "value", "unit", "method", "treatment_condition",
-                    "source_location", "provenance", "needs_human", "verified",
-                ]
-                value_cols = [c for c in value_cols if c in paper_num.columns]
-                st.dataframe(paper_num[value_cols], width="stretch", hide_index=True,
-                             height=min(520, 38 + 35 * min(len(paper_num), 14)))
+        techs = "  ".join(f'<span class="chip tech">{TECH_LABEL.get(x, x)}</span>' for x in p.analysis)
+        st.markdown(f"""<div class="aicard">
+           <div style="font-family:ui-monospace,Menlo,monospace;color:{INK}">{p.paper_id}
+             <span style="color:{INK2}">· {p.year_str}</span></div>
+           <div style="margin:6px 0">{techs}
+             <span class="chip sys">{(p.system or '')[:70]}</span></div>
+           <div class="transfer">{p.scientific_story or ''}</div>
+           </div>""", unsafe_allow_html=True)
 
     core = papers[papers.analysis.map(lambda a: any(x in a for x in ("ML", "deep_learning", "digital_twin")))]
-    other = papers[papers.analysis.map(lambda a: any(x in a for x in ("DOE_RSM", "proteomics"))) &
+    other = papers[papers.analysis.map(lambda a: bool(a)) &
                    ~papers.paper_id.isin(core.paper_id)]
 
     st.markdown(f"### {t['ai_core']}")
