@@ -38,7 +38,7 @@ TODAY = date.today().isoformat()
 # Old synthetic records that represented several publications in one `papers`
 # row. They are removed before ingest so a corrected split cannot leave a stale
 # pseudo-paper in the database after its seed file is deleted.
-RETIRED_SEED_IDS = ("ptrms_ml_sensory_cluster",)
+RETIRED_SEED_IDS = ("ptrms_ml_sensory_cluster", "moringa_optim_unknown")
 
 # outcome field -> (quantity name, unit) for the numeric_results table
 NUMERIC_OUTCOMES = {
@@ -326,6 +326,10 @@ def ingest():
     )
     conn.commit()
     conn.close()
+
+    # Derived harmonization is rebuilt from raw rows after every seed refresh.
+    import harmonize
+    harmonize.build()
 
     print(f"Ingested {n_papers} papers into {DB_PATH}")
     print(f"  numeric_results rows: {n_numeric}  (needs_human flagged: {n_flagged})")

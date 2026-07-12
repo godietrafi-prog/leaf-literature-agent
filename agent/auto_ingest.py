@@ -218,6 +218,8 @@ def ingest_one(pdf_path: Path) -> tuple[str, int]:
     conn.commit()
     conn.close()
     update_pdf_map(meta["paper_id"], target)
+    import harmonize
+    harmonize.build()
     return meta["paper_id"], n_rows
 
 

@@ -167,6 +167,8 @@ def store(*, paper_ids: list[str] | None = None, search_only: bool = False,
     llm = conn.execute("SELECT COUNT(*) FROM numeric_results WHERE provenance LIKE 'llm:%'").fetchone()[0]
     print(f"DB numeric_results now: {seed} seed + {llm} llm-extracted = {seed + llm}")
     conn.close()
+    import harmonize
+    harmonize.build()
 
 
 if __name__ == "__main__":

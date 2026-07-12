@@ -1,0 +1,32 @@
+{
+  "selection_version": "pilot-v1",
+  "selection_logic": "Maximum coverage of direct carrot, oxidation/sensory, combined processing, colour removal and DOE trade-offs",
+  "papers": [
+    {
+      "paper_id": "radish_fh2025",
+      "role": "direct leaf-protein enzymatic extraction analogue"
+    },
+    {
+      "paper_id": "search_2025_s11947_025_04156_2",
+      "role": "LOX/VOC response to extraction treatments"
+    },
+    {
+      "paper_id": "duckweed_fbt2025",
+      "role": "combined process and optimization"
+    },
+    {
+      "paper_id": "cloverbiorefinery2025",
+      "role": "chlorophyll/colour removal and biorefinery trade-offs"
+    },
+    {
+      "paper_id": "moringa_gels2025",
+      "role": "DOE ranges and purity/yield trade-off"
+    }
+  ],
+  "priority_missing_source": [
+    {
+      "paper_id": "carrot_greenleaves_pmc",
+      "reason": "most direct carrot evidence, but no source PDF is mapped; must join the full-corpus run when acquired"
+    }
+  ]
+}

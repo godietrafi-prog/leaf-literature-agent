@@ -29,6 +29,10 @@ import pandas as pd
 import streamlit as st
 
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "db", "leaf_lit.db")
+# Temporary project decision: include every extracted row in downstream
+# harmonized/analysis exports while the formal human audit is pending. This
+# labels the assumption; it does not falsify numeric_results.verified.
+ASSUME_ALL_VALIDATED = True
 
 # ── palette: quiet work-focused light UI ──────────────────────────────────────
 ACCENT = "#167a55"
@@ -79,6 +83,8 @@ T = {'title': 'Leaf Literature Agent',
                 'and green color. Those sensory & color goals matter more than protein % alone; '
                 'track their (sparse) coverage in the Gaps & target tab.',
  'tab_normalize': 'Cross-study',
+ 'tab_exports': 'Harmonized exports',
+ 'tab_knowledge': 'Knowledge / DOE',
  'tab_verify': 'Verify',
  'tab_gaps': 'Gaps & target',
  'tab_compare': 'Compare / query',
@@ -111,6 +117,13 @@ T = {'title': 'Leaf Literature Agent',
  'qry_n': 'Build a filtered, analysable table across all studies — then download it.',
  'qry_prov': 'Source',
  'qry_dl': '⬇ Download CSV',
+ 'exports_h': 'Download auditable data layers',
+ 'exports_n': 'Raw is immutable. Validated adds human/curator decisions. Harmonized adds ontology, '
+              'canonical units and explicit conversion formulas. Analysis-ready contains only '
+              'validated, successfully harmonized rows.',
+ 'knowledge_h': 'Evidence claims to experiment candidates',
+ 'knowledge_n': 'Family-level rows identify DOE factors; signature-level rows preserve exact process order. '
+                'Every candidate traces back to claims, papers and source quotations.',
  'ver_how': '**How to verify — you are confirming numbers the AI already extracted, not hunting '
             'for missing data:** ① note the **paper**; ② read the **source (verbatim)** column — '
             "it quotes the exact table / section the number came from; ③ open that paper's PDF and "
@@ -133,6 +146,7 @@ T = {'title': 'Leaf Literature Agent',
  'filters': 'Filters',
  'f_species': 'Species',
  'f_rel': 'Relevance',
+ 'f_source_type': 'Scientific / patent',
  'f_flag': 'Only papers with a needs-verify value',
  'f_search': 'Search title / species / method',
  'showing': 'Showing',
@@ -455,12 +469,102 @@ def load(_mtime: float):
     return papers, numeric, cats
 
 
+@st.cache_data(show_spinner=False)
+def export_frames(_mtime: float):
+    con = sqlite3.connect(DB_PATH)
+    raw = pd.read_sql_query(
+        """SELECT n.result_id, n.paper_id, p.title, p.year, p.source_type, p.system,
+                  n.quantity, n.value AS value_raw, n.unit AS unit_raw,
+                  n.sd_error, n.error_type, n.n_replicates, n.p_value,
+                  n.method, n.species, n.treatment_condition, n.basis,
+                  n.source_location, n.is_from_SI, n.provenance, n.needs_human,
+                  n.extracted_date
+           FROM numeric_results n JOIN papers p USING(paper_id)""", con)
+    validated = pd.read_sql_query(
+        """SELECT n.result_id, n.paper_id, n.quantity, n.value AS value_raw, n.unit AS unit_raw,
+                  n.verified, n.verified_value, n.verified_by, n.confidence,
+                  n.verified_note, n.verified_date, n.provenance, n.needs_human,
+                  CASE WHEN n.verified=1 THEN 'human_verified'
+                       WHEN n.provenance='seed_verified' THEN 'curator_verified'
+                       WHEN n.provenance='seed' AND COALESCE(n.needs_human,0)=0 THEN 'curated_seed_clean'
+                       ELSE 'assumed_validated_pending_audit' END AS validation_basis,
+                  CASE WHEN n.verified=1 AND n.verified_value IS NOT NULL
+                       THEN n.verified_value ELSE n.value END AS value_validated,
+                  n.source_location
+           FROM numeric_results n""", con)
+    harmonized = pd.read_sql_query(
+        """SELECT n.result_id, n.paper_id, p.title, n.quantity AS quantity_raw,
+                  n.value AS value_raw, n.unit AS unit_raw,
+                  CASE WHEN n.verified=1 AND n.verified_value IS NOT NULL
+                       THEN n.verified_value ELSE n.value END AS value_validated,
+                  CASE WHEN n.verified=1 THEN 'human_verified'
+                       WHEN n.provenance='seed_verified' THEN 'curator_verified'
+                       WHEN n.provenance='seed' AND COALESCE(n.needs_human,0)=0 THEN 'curated_seed_clean'
+                       ELSE 'assumed_validated_pending_audit' END AS validation_basis,
+                  h.quantity_std, h.value_std, h.unit_std, h.ontology_term,
+                  h.harmonization_status, h.conversion_formula, h.mapping_version,
+                  h.harmonization_notes, n.treatment_condition, n.basis,
+                  f.ph, f.temperature_c, f.time_min, f.oxygen_control,
+                  f.sonication, f.heat_treatment, f.feature_status,
+                  n.source_location, n.provenance
+           FROM numeric_results n JOIN papers p USING(paper_id)
+           LEFT JOIN numeric_results_harmonized h USING(result_id)
+           LEFT JOIN treatment_features f USING(result_id)""", con)
+    con.close()
+    valid_basis = {"human_verified", "curator_verified", "curated_seed_clean"}
+    if ASSUME_ALL_VALIDATED:
+        valid_basis.add("assumed_validated_pending_audit")
+    analysis_long = harmonized[
+        harmonized.validation_basis.isin(valid_basis)
+        & harmonized.harmonization_status.isin(["exact", "converted"])
+        & harmonized.value_std.notna()
+    ].copy()
+    analysis_long["feature_key"] = (
+        analysis_long.quantity_std.fillna("unknown") + "__" +
+        analysis_long.unit_std.fillna("unit_unknown").astype(str).str.replace(r"[^A-Za-z0-9]+", "_", regex=True) + "__" +
+        analysis_long.basis.fillna("basis_unknown").astype(str).str.replace(r"[^A-Za-z0-9]+", "_", regex=True)
+    )
+    index_cols = ["paper_id", "treatment_condition", "ph", "temperature_c", "time_min",
+                  "oxygen_control", "sonication", "heat_treatment"]
+    if len(analysis_long):
+        wide_source = analysis_long.copy()
+        wide_source["treatment_condition"] = wide_source.treatment_condition.fillna("not_reported")
+        for col in index_cols[2:]:
+            wide_source[col] = wide_source[col].fillna("not_reported")
+        analysis_wide = wide_source.pivot_table(
+            index=index_cols, columns="feature_key", values="value_std", aggfunc="first").reset_index()
+        analysis_wide.columns.name = None
+    else:
+        analysis_wide = pd.DataFrame(columns=index_cols)
+    return raw, validated, harmonized, analysis_long, analysis_wide
+
+
+@st.cache_data(show_spinner=False)
+def knowledge_frames(_mtime: float):
+    con = sqlite3.connect(DB_PATH)
+    try:
+        claims = pd.read_sql_query(
+            """SELECT c.claim_id,c.paper_id,r.source_scope,r.study_role,r.evidence_domain,
+                      t.treatment_family,t.treatment_signature,
+                      c.outcome_id,c.comparator_type,c.direction,c.effect_type,c.effect_value,
+                      c.effect_unit,c.confidence,c.quote_match,c.validation_status,
+                      c.source_location,c.source_quote
+               FROM evidence_claims c JOIN knowledge_treatments t USING(treatment_id)
+               JOIN knowledge_paper_roles r USING(paper_id)""", con)
+        candidates = pd.read_sql_query("SELECT * FROM experiment_candidates", con)
+    except Exception:
+        claims, candidates = pd.DataFrame(), pd.DataFrame()
+    con.close()
+    return claims, candidates
+
+
 def ensure_cols():
     """Add verification columns to numeric_results if missing (one-time migration)."""
     con = sqlite3.connect(DB_PATH)
     have = [r[1] for r in con.execute("PRAGMA table_info(numeric_results)")]
     for name, ddl in [("provenance", "TEXT DEFAULT 'seed'"), ("verified", "INTEGER DEFAULT 0"),
-                      ("verified_value", "REAL"), ("verified_note", "TEXT"), ("verified_date", "TEXT")]:
+                      ("verified_value", "REAL"), ("verified_by", "TEXT"),
+                      ("confidence", "TEXT"), ("verified_note", "TEXT"), ("verified_date", "TEXT")]:
         if name not in have:
             con.execute(f"ALTER TABLE numeric_results ADD COLUMN {name} {ddl}")
     con.commit()
@@ -529,10 +633,10 @@ c[4].metric(t["k_full"], n_full)
 c[5].metric(t["k_ai"], n_ai)
 c[6].metric(t["k_extracted"], len(extracted_num), help=t["k_extracted_help"])
 
-(tab_ov, tab_sensory, tab_evidence, tab_hypothesis, tab_corpus, tab_ex, tab_norm, tab_verify, tab_gaps,
+(tab_ov, tab_sensory, tab_evidence, tab_hypothesis, tab_corpus, tab_ex, tab_norm, tab_exports, tab_knowledge, tab_verify, tab_gaps,
  tab_compare, tab_ai, tab_cats) = st.tabs(
     [t["tab_overview"], t["tab_sensory"], t["tab_evidence"], t["tab_hypothesis"],
-     t["tab_corpus"], t["tab_extracted"], t["tab_normalize"],
+     t["tab_corpus"], t["tab_extracted"], t["tab_normalize"], t["tab_exports"], t["tab_knowledge"],
      t["tab_verify"], t["tab_gaps"], t["tab_compare"], t["tab_ai"], t["tab_cats"]])
 
 
@@ -721,10 +825,11 @@ with tab_ex:
 
 with tab_corpus:
     st.markdown(f"### {t['filters']}")
-    fc = st.columns([2, 1.4, 1.4])
+    fc = st.columns([2, 1.4, 1.4, 1.4])
     q = fc[0].text_input(t["f_search"], "")
     fsp = fc[1].multiselect(t["f_species"], sorted(papers.species.unique()))
     frel = fc[2].multiselect(t["f_rel"], ["High", "Medium", "Low"])
+    fsource = fc[3].multiselect(t["f_source_type"], sorted(papers.source_type.dropna().unique()))
     fflag = st.checkbox(t["f_flag"], value=False)
 
     view = papers.copy()
@@ -732,6 +837,8 @@ with tab_corpus:
         view = view[view.species.isin(fsp)]
     if frel:
         view = view[view.relevance.isin(frel)]
+    if fsource:
+        view = view[view.source_type.isin(fsource)]
     if fflag:
         view = view[view["n_flags"] > 0]
     if q:
@@ -741,7 +848,7 @@ with tab_corpus:
         view = view[hay.str.contains(re.escape(ql))]
 
     st.caption(f"{t['showing']} {len(view)} {t['of']} {len(papers)} {t['papers']}")
-    show = view[["paper_id", "year", "species", "relevance", "verification_level",
+    show = view[["paper_id", "year", "source_type", "species", "relevance", "verification_level",
                  "purity", "yield", "n_flags"]].rename(columns={
         "paper_id": "paper", "verification_level": "text level", "n_flags": "⚠ flags"})
     st.dataframe(show, width="stretch", hide_index=True,
@@ -978,6 +1085,122 @@ with tab_norm:
             width="stretch", hide_index=True)
 
 
+with tab_exports:
+    st.markdown(f"### {t['exports_h']}")
+    st.markdown(f'<p class="llead">{t["exports_n"]}</p>', unsafe_allow_html=True)
+    raw_x, valid_x, harm_x, analysis_long_x, analysis_wide_x = export_frames(mtime)
+    validated_mask = valid_x.validation_basis.ne("unvalidated")
+    harmonized_mask = harm_x.harmonization_status.isin(["exact", "converted", "identity_only"])
+    metrics = st.columns(5)
+    metrics[0].metric("Raw rows", len(raw_x))
+    metrics[1].metric("Validated", int(validated_mask.sum()))
+    metrics[2].metric("Harmonized", int(harmonized_mask.sum()))
+    metrics[3].metric("Analysis-ready", len(analysis_long_x))
+    metrics[4].metric("Papers represented", analysis_long_x.paper_id.nunique())
+
+    coverage = pd.DataFrame([{
+        "corpus_papers": len(papers),
+        "full_text_or_SI_papers": int(papers.verification_level.fillna("").str.contains("full_text").sum()),
+        "raw_numeric_rows": len(raw_x),
+        "validated_rows": int(validated_mask.sum()),
+        "harmonized_or_identity_preserved_rows": int(harmonized_mask.sum()),
+        "analysis_ready_rows": len(analysis_long_x),
+        "analysis_ready_papers": analysis_long_x.paper_id.nunique(),
+        "excluded_unvalidated": int((~validated_mask).sum()),
+        "validation_policy": "assume_all_pending_audit" if ASSUME_ALL_VALIDATED else "verified_only",
+        "excluded_not_harmonizable_or_unmapped": int((~harmonized_mask).sum()),
+        "mapping_version": next((x for x in harm_x.mapping_version.dropna().unique()), "not built"),
+    }])
+    st.markdown("#### Coverage manifest")
+    st.dataframe(coverage, width="stretch", hide_index=True)
+    st.warning("Temporary policy: all rows are included as assumed_validated_pending_audit. "
+               "The original verified flags remain unchanged for the later formal audit.")
+
+    st.markdown("#### Download layers")
+    dl = st.columns(3)
+    dl[0].download_button("⬇ 1 · Raw immutable", raw_x.to_csv(index=False).encode("utf-8"),
+                          "leaf_data_1_raw.csv", "text/csv", width="stretch")
+    dl[1].download_button("⬇ 2 · Validation layer", valid_x.to_csv(index=False).encode("utf-8"),
+                          "leaf_data_2_validated.csv", "text/csv", width="stretch")
+    dl[2].download_button("⬇ 3 · Harmonized long", harm_x.to_csv(index=False).encode("utf-8"),
+                          "leaf_data_3_harmonized.csv", "text/csv", width="stretch")
+    dl2 = st.columns(3)
+    dl2[0].download_button("⬇ 4A · Analysis-ready long",
+                           analysis_long_x.to_csv(index=False).encode("utf-8"),
+                           "leaf_data_4_analysis_long.csv", "text/csv", width="stretch")
+    dl2[1].download_button("⬇ 4B · Analysis-ready wide",
+                           analysis_wide_x.to_csv(index=False).encode("utf-8"),
+                           "leaf_data_4_analysis_wide.csv", "text/csv", width="stretch")
+    dl2[2].download_button("⬇ Coverage manifest", coverage.to_csv(index=False).encode("utf-8"),
+                           "leaf_data_coverage_manifest.csv", "text/csv", width="stretch")
+
+    status_counts = harm_x.harmonization_status.fillna("not_built").value_counts().rename_axis(
+        "harmonization_status").reset_index(name="rows")
+    st.markdown("#### Harmonization exclusions")
+    st.dataframe(status_counts, width="stretch", hide_index=True)
+
+
+with tab_knowledge:
+    st.markdown(f"### {t['knowledge_h']}")
+    st.markdown(f'<p class="llead">{t["knowledge_n"]}</p>', unsafe_allow_html=True)
+    claims_x, candidates_x = knowledge_frames(mtime)
+    if claims_x.empty:
+        st.info("Knowledge extraction has not been built yet.")
+    else:
+        km = st.columns(5)
+        km[0].metric("Claims", len(claims_x))
+        km[1].metric("Source-quote matched", int(claims_x.quote_match.fillna(0).sum()))
+        km[2].metric("Papers", claims_x.paper_id.nunique())
+        km[3].metric("Treatment families", claims_x.treatment_family.nunique())
+        km[4].metric("Candidates", len(candidates_x))
+
+        st.markdown("#### Experiment Candidate Matrix")
+        level = st.radio("Aggregation", ["family", "signature"], horizontal=True,
+                         help="Family selects DOE factors; signature preserves ordered process steps.")
+        cm = candidates_x[candidates_x.aggregation_level == level].copy()
+        cf = st.columns(5)
+        selected_outcomes = cf[0].multiselect("Outcomes", sorted(cm.outcome_id.unique()))
+        selected_families = cf[1].multiselect("Treatment families", sorted(cm.treatment_family.unique()))
+        source_scope = cf[2].selectbox("Source type", ["scientific", "patent"])
+        evidence_domain = cf[3].selectbox("Evidence domain", ["core_leaf_process", "transfer"])
+        min_papers = cf[4].number_input("Minimum papers", min_value=1, value=1, step=1)
+        if selected_outcomes:
+            cm = cm[cm.outcome_id.isin(selected_outcomes)]
+        if selected_families:
+            cm = cm[cm.treatment_family.isin(selected_families)]
+        cm = cm[(cm.source_scope == source_scope) & (cm.evidence_domain == evidence_domain)]
+        cm = cm[cm.paper_count >= min_papers].sort_values("evidence_score", ascending=False)
+        candidate_cols = ["source_scope", "evidence_domain", "treatment_family", "treatment_signature", "outcome_id", "paper_count",
+                          "species_count", "positive_claims", "neutral_claims", "negative_claims",
+                          "contradiction_rate", "evidence_score", "confidence", "parameter_ranges",
+                          "representative_papers", "doe_role"]
+        st.dataframe(cm[candidate_cols], width="stretch", hide_index=True,
+                     column_config={"treatment_signature": st.column_config.TextColumn(width="large"),
+                                    "parameter_ranges": st.column_config.TextColumn(width="large")})
+        st.download_button("⬇ Experiment Candidate Matrix", cm.to_csv(index=False).encode("utf-8"),
+                           f"experiment_candidates_{level}.csv", "text/csv")
+
+        st.markdown("#### Trace candidates back to evidence")
+        trace_family = st.selectbox("Treatment family", sorted(claims_x.treatment_family.unique()))
+        traced = claims_x[(claims_x.treatment_family == trace_family)
+                          & (claims_x.source_scope == source_scope)].sort_values(
+            ["outcome_id", "paper_id"])
+        st.dataframe(traced[["paper_id", "source_scope", "study_role", "evidence_domain",
+                             "outcome_id", "direction", "effect_value", "effect_unit",
+                             "confidence", "quote_match", "source_location", "source_quote"]],
+                     width="stretch", hide_index=True,
+                     column_config={"source_quote": st.column_config.TextColumn(width="large")})
+        st.download_button("⬇ Evidence claims", claims_x.to_csv(index=False).encode("utf-8"),
+                           "knowledge_evidence_claims.csv", "text/csv")
+
+        missing_csv = os.path.join(os.path.dirname(DB_PATH), "..", "inbox", "MISSING_FULL_TEXT.csv")
+        if os.path.exists(missing_csv):
+            st.markdown("#### Missing source material")
+            missing_bytes = open(missing_csv, "rb").read()
+            st.download_button("⬇ Missing full text / SI", missing_bytes,
+                               "missing_full_text.csv", "text/csv")
+
+
 with tab_verify:
     st.markdown(f"### {t['ver_h']}")
     st.markdown(f'<p class="llead">{t["ver_n"]}</p>', unsafe_allow_html=True)
@@ -997,7 +1220,8 @@ with tab_verify:
         vdf = vdf[(vdf.needs_human == 1) & (vdf.verified == 0)]
     vdf["pdf"] = vdf.paper_id.map(pdf_base).fillna("— (no local PDF)")
     vcols = ["result_id", "paper_id", "pdf", "quantity", "value", "unit", "provenance",
-             "needs_human", "verified", "verified_value", "verified_note", "source_location"]
+             "needs_human", "verified", "verified_value", "verified_by", "confidence",
+             "verified_note", "source_location"]
     vdf = vdf[vcols].copy()
     vdf["verified"] = vdf["verified"].astype(bool)
     if len(vdf) == 0:
@@ -1010,13 +1234,15 @@ with tab_verify:
         st.caption(f"{len(vdf)} rows")
         edited = st.data_editor(
             vdf, width="stretch", hide_index=True, key="verify_editor",
-            disabled=["result_id", "paper_id", "pdf", "quantity", "unit", "provenance",
+            disabled=["result_id", "paper_id", "pdf", "quantity", "value", "unit", "provenance",
                       "needs_human", "source_location"],
             column_config={
                 "pdf": st.column_config.TextColumn(t["ver_pdf"]),
                 "verified": st.column_config.CheckboxColumn("✓ verified"),
                 "value": st.column_config.NumberColumn("value", format="%.4g"),
                 "verified_value": st.column_config.NumberColumn("corrected value", format="%.4g"),
+                "confidence": st.column_config.SelectboxColumn(
+                    "confidence", options=["High", "Medium", "Low"]),
                 "verified_note": st.column_config.TextColumn("note"),
                 "source_location": st.column_config.TextColumn("source (verbatim)", width="large"),
             })
@@ -1028,18 +1254,21 @@ with tab_verify:
             for rid in ed.index:
                 o, e = orig.loc[rid], ed.loc[rid]
                 changed = (bool(o.verified) != bool(e.verified)
-                           or (o.value != e.value) or (str(o.verified_note) != str(e.verified_note))
-                           or (str(o.verified_value) != str(e.verified_value)))
+                           or (str(o.verified_note) != str(e.verified_note))
+                           or (str(o.verified_value) != str(e.verified_value))
+                           or (str(o.verified_by) != str(e.verified_by))
+                           or (str(o.confidence) != str(e.confidence)))
                 if not changed:
                     continue
                 con.execute(
                     """UPDATE numeric_results
-                       SET value=?, verified=?, verified_value=?, verified_note=?,
+                       SET verified=?, verified_value=?, verified_by=?, confidence=?, verified_note=?,
                            verified_date=?, needs_human=CASE WHEN ?=1 THEN 0 ELSE needs_human END
                        WHERE result_id=?""",
-                    (float(e.value) if pd.notna(e.value) else None, int(bool(e.verified)),
-                     float(e.verified_value) if pd.notna(e.verified_value) else None,
-                     (e.verified_note or None), date.today().isoformat(),
+                    (int(bool(e.verified)), float(e.verified_value) if pd.notna(e.verified_value) else None,
+                     None if pd.isna(e.verified_by) else str(e.verified_by),
+                     None if pd.isna(e.confidence) else str(e.confidence),
+                     None if pd.isna(e.verified_note) else str(e.verified_note), date.today().isoformat(),
                      int(bool(e.verified)), int(rid)))
                 n += 1
             con.commit()

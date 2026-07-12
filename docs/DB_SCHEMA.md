@@ -67,6 +67,24 @@ A paper can carry several categories (e.g. `extraction_method:membrane`, `mechan
 | `unit_std` | TEXT | canonical unit for that quantity |
 | `norm_notes` | TEXT | how it was converted / assumptions |
 
+### Harmonization and analysis layers
+
+`numeric_results_harmonized` stores the canonical quantity, value/unit,
+ontology term, conversion formula, mapping version and an explicit status
+(`exact`, `converted`, `identity_only`, `not_harmonizable`, `needs_mapping`).
+`identity_only` preserves the value/unit without claiming cross-unit equivalence;
+analysis-wide columns therefore include quantity + unit + basis. It references the
+immutable raw `result_id`; it never replaces `numeric_results.value`.
+
+`treatment_features` parses comparable experimental descriptors such as pH,
+temperature, time, oxygen control, sonication and heat treatment. Rule-derived
+features remain `parsed_needs_review` until audited.
+
+During the current planning phase, dashboard exports include all rows under the
+explicit label `assumed_validated_pending_audit`. This is an inclusion policy,
+not a mutation of the historical `verified` flag. The coverage manifest records
+that policy with every export.
+
 ### `access_queue` — mirrors `inaccessible_queue/` folder
 | column | type | notes |
 |---|---|---|

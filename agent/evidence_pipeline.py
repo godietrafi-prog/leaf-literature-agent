@@ -388,6 +388,9 @@ def promote(path: Path, dry_run: bool) -> int:
     if not dry_run:
         conn.commit()
     conn.close()
+    if not dry_run and inserted:
+        import harmonize
+        harmonize.build()
     print(f"{'Would promote' if dry_run else 'Promoted'} {inserted} approved rows; "
           f"{len(rows) - len(approved)} unapproved rows ignored")
     return 0
