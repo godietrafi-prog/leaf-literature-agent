@@ -194,6 +194,120 @@ TECH_LABEL = {
     "DOE_RSM": "DOE / RSM", "proteomics": "Proteomics",
 }
 
+# Curated plain-language accounts of what the five AI/ML records actually did.
+# Several records are literature clusters or reviews, not single ML experiments;
+# keeping that distinction visible prevents overstating the evidence.
+AI_METHOD_EXPLANATIONS = {
+    "mandal2026_ml_functional_performance": {
+        "study_type": "Original machine-learning regression study",
+        "workflow": (
+            "Built a 150-point dataset spanning soy, pea, chickpea, rice, hemp, camelina and "
+            "pennycress ingredients. The inputs were measurable structural descriptors such as "
+            "surface hydrophobicity, zeta potential, undenatured protein, soluble polymers and "
+            "beta-sheet content. Multiple regression models were trained and tuned with 5-fold "
+            "cross-validation."
+        ),
+        "target": (
+            "Predict solubility, emulsifying activity, emulsifying capacity and gel strength "
+            "without running every functional test on every candidate ingredient."
+        ),
+        "result": (
+            "Gaussian support-vector regression was the strongest physically plausible model "
+            "(reported R²: 0.7383–0.8906 across the four targets)."
+        ),
+        "project_use": (
+            "A direct precedent for screening a leaf-protein ingredient from a compact panel of "
+            "analytical measurements; it does not predict off-flavor, color or LOX activity."
+        ),
+    },
+    "digital_twin_food_processing_cluster": {
+        "study_type": "Cluster; the main evidence is one verified neural-ODE control study",
+        "workflow": (
+            "Kannapinn et al. generated process trajectories with a high-fidelity finite-element "
+            "simulation of chicken cooking, trained an augmented neural ODE as a fast reduced-order "
+            "surrogate, and embedded it in model-predictive control. At each control step, a "
+            "sub-optimization re-synchronized the surrogate with the measured core temperature."
+        ),
+        "target": (
+            "Predict the evolving thermal state fast enough to choose oven controls online and "
+            "reach product targets autonomously."
+        ),
+        "result": (
+            "The surrogate reported 0.18–0.49% relative time-series error and ran about 36,000× "
+            "faster than real time, enabling many candidate control trajectories to be evaluated."
+        ),
+        "project_use": (
+            "A methodological precedent for a dynamic process twin. Important limitation: this was "
+            "an in-silico oven experiment trained on clean simulation data—not a leaf-protein or "
+            "off-flavor experiment using sparse, noisy physical sensor data."
+        ),
+    },
+    "search_2026_sfp2_70048": {
+        "study_type": "Review article—not a new ML model or training experiment",
+        "workflow": (
+            "Reviewed nutritional, sensory and functional limitations of plant proteins, then "
+            "organized physical, chemical and biological modification methods and their effects on "
+            "protein structure. A final section surveyed AI, machine learning and molecular docking "
+            "examples used to connect molecular or structural changes with ingredient behavior."
+        ),
+        "target": (
+            "Provide an integrated map of how processing changes structure and how computational "
+            "tools can help interpret or predict the resulting quality."
+        ),
+        "result": (
+            "Its contribution is synthesis and examples, not a validated model, dataset or new "
+            "prediction accuracy."
+        ),
+        "project_use": (
+            "Useful for framing and references across structure, off-flavor and functionality, but "
+            "it should not be counted as independent experimental ML evidence."
+        ),
+    },
+    "enose_ml_offflavor_cluster": {
+        "study_type": "Cluster combining review evidence with a catfish e-nose experiment",
+        "workflow": (
+            "In the catfish study, headspace from good-flavor and off-flavor fillet cores was read "
+            "by a 32-sensor conducting-polymer electronic nose. Sensor resistance patterns were "
+            "used to build reference odor classes and train an artificial neural-network pattern "
+            "recognizer for unknown samples. The associated review supplies broader field context."
+        ),
+        "target": (
+            "Classify a food sample as good-flavor or off-flavor from its multichannel volatile "
+            "fingerprint rather than relying only on human graders."
+        ),
+        "result": (
+            "Across three trials, the catfish system correctly identified 90.7–98.8% of off-flavor "
+            "samples and 95.3–98.5% of good-flavor samples, with some inconclusive cases."
+        ),
+        "project_use": (
+            "Shows that sensor-array fingerprints can support learned off-flavor classification. "
+            "It is transfer evidence from fish, and does not establish performance for leaf protein."
+        ),
+    },
+    "ptrms_ml_sensory_cluster": {
+        "study_type": "Cluster of one supervised sensory-classification study and one VOC-profiling study",
+        "workflow": (
+            "Deuscher et al. measured PTR-ToF-MS volatile fingerprints for 206 dark chocolates "
+            "already assigned to four sensory categories, then trained a supervised PLS-DA model "
+            "and used feature selection to find discriminating ions. The plant-milk study instead "
+            "used PTR-ToF-MS, GC-MS and PCA to compare soy, almond, oat and bovine milk VOC profiles; "
+            "it did not train a sensory prediction model."
+        ),
+        "target": (
+            "For chocolate: predict a human sensory category from a rapid headspace fingerprint. "
+            "For milk: characterize which volatile patterns distinguish plant beverages from milk."
+        ),
+        "result": (
+            "The chocolate model correctly classified 97% of a 62-sample test set; the milk study "
+            "detected 188 PTR mass peaks and separated beverage types by PCA."
+        ),
+        "project_use": (
+            "The closest precedent for mapping rapid VOC fingerprints to sensory labels. PLS-DA is "
+            "classical multivariate modeling—not deep learning—and neither study used leaf protein."
+        ),
+    },
+}
+
 # Read-only mode for the shared/deployed instance: no DB writes (verification is
 # done on the local instance). Set env LEAF_READONLY=1 on Streamlit Cloud.
 READ_ONLY = os.environ.get("LEAF_READONLY", "").lower() in ("1", "true", "yes")
@@ -691,6 +805,16 @@ with tab_ai:
             st.markdown(" · ".join(links))
 
             st.markdown(f"#### {t['ai_done']}")
+            explanation = AI_METHOD_EXPLANATIONS.get(p.paper_id)
+            if explanation:
+                st.markdown(
+                    f"**Study type:** {explanation['study_type']}\n\n"
+                    f"**Workflow:** {explanation['workflow']}\n\n"
+                    f"**Prediction / control target:** {explanation['target']}\n\n"
+                    f"**Main result:** {explanation['result']}\n\n"
+                    f"**What transfers to this project:** {explanation['project_use']}"
+                )
+
             done = []
             system = clean_text(p.system)
             method_family = clean_text(p.extraction_method_family)
@@ -706,8 +830,10 @@ with tab_ai:
                     shown += f" (+{len(measured_methods) - 12} more)"
                 done.append(f"**Methods represented in extracted results:** {shown}")
             if done:
+                if explanation:
+                    st.markdown("**Database method metadata**")
                 st.markdown("\n\n".join(done))
-            else:
+            elif not explanation:
                 st.caption("The database does not yet contain a detailed method description.")
 
             story = clean_text(p.scientific_story)
