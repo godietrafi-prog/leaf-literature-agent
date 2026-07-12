@@ -35,6 +35,11 @@ SCHEMA_PATH = os.path.join(ROOT, "db", "schema.sql")
 SEED_GLOB = os.path.join(ROOT, "seed_data", "metadata", "*.md")
 TODAY = date.today().isoformat()
 
+# Old synthetic records that represented several publications in one `papers`
+# row. They are removed before ingest so a corrected split cannot leave a stale
+# pseudo-paper in the database after its seed file is deleted.
+RETIRED_SEED_IDS = ("ptrms_ml_sensory_cluster",)
+
 # outcome field -> (quantity name, unit) for the numeric_results table
 NUMERIC_OUTCOMES = {
     "protein_purity_pct": ("protein_purity_pct", "%"),
@@ -219,6 +224,9 @@ def ingest():
     if "provenance" not in [r[1] for r in conn.execute("PRAGMA table_info(numeric_results)")]:
         conn.execute("ALTER TABLE numeric_results ADD COLUMN provenance TEXT DEFAULT 'seed'")
 
+    for retired_id in RETIRED_SEED_IDS:
+        conn.execute("DELETE FROM papers WHERE paper_id = ?", (retired_id,))
+
     files = sorted(glob.glob(SEED_GLOB))
     if not files:
         sys.exit(f"no seed files found at {SEED_GLOB}")
@@ -254,9 +262,9 @@ def ingest():
                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
             (
                 pid, clean_doi, meta.get("title"), meta.get("authors"),
-                year, None, source_kind(meta.get("source_type", "")),
+                year, meta.get("venue"), source_kind(meta.get("source_type", "")),
                 meta.get("system"), meta.get("extraction_method_family"),
-                meta.get("relevance"), vlevel, access, "none", "seed",
+                meta.get("relevance"), vlevel, access, meta.get("si_status", "none"), "seed",
                 meta.get("one_line_relevance_note"), body, TODAY, TODAY,
             ),
         )
@@ -282,6 +290,32 @@ def ingest():
                     source_location, is_from_SI, needs_human, provenance, extracted_date)
                    VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
                 (pid, quantity, value, unit, None, species, src, 0, needs_human, "seed", TODAY),
+            )
+            n_numeric += 1
+            n_flagged += needs_human
+
+        # Optional hand-verified rows for quantities outside the four legacy
+        # outcome fields. This keeps table/figure extractions traceable without
+        # forcing them into narrative strings.
+        for row in meta.get("numeric_results", []) or []:
+            if row.get("value") is None or not row.get("quantity"):
+                continue
+            needs_human = int(row.get("needs_human", 0))
+            cur.execute(
+                """INSERT INTO numeric_results
+                   (paper_id, quantity, value, unit, sd_error, error_type,
+                    n_replicates, p_value, method, species, treatment_condition,
+                    basis, source_location, is_from_SI, needs_human, provenance,
+                    extracted_date)
+                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                (
+                    pid, row["quantity"], row["value"], row.get("unit"),
+                    row.get("sd_error"), row.get("error_type"), row.get("n_replicates"),
+                    row.get("p_value"), row.get("method"), row.get("species", species),
+                    row.get("treatment_condition"), row.get("basis"),
+                    row.get("source_location"), int(row.get("is_from_SI", 0)),
+                    needs_human, "seed_verified", TODAY,
+                ),
             )
             n_numeric += 1
             n_flagged += needs_human

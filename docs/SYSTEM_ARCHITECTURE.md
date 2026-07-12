@@ -90,3 +90,14 @@ A true "daily autonomous daemon" is a poor fit for this environment: WSL/Windows
 - A light scheduler (Windows Task Scheduler / WSL cron / the workspace's existing patterns) can *trigger* that batch when a machine is on, but the batch's correctness never depends on the trigger firing on time — the `last_run` catch-up makes it self-healing.
 - If genuinely unattended cadence is wanted later, a **cloud scheduled agent** (the workspace's `/schedule` routine) is the right tool, since it runs independently of any local machine's power state.
 - The DB (`db/leaf_lit.db`) is the single source of truth for run state and syncs via OneDrive, so the "when did we last search" clock is shared across machines automatically.
+
+# Figure/table evidence audit
+
+Run `python3 agent/audit_pdf_evidence.py` to scan every PDF listed in
+`db/pdf_sources.json`. The generated `db/evidence_candidate_audit.csv` is a
+triage queue of caption/page candidates, not a claim that numeric values have
+already been extracted. Tables should be extracted before plots. Values
+digitised from plotted marks must be stored with the figure and page in
+`source_location`, marked as graph-derived, and kept `needs_human=1` until a
+person compares them with the rendered source page. Raster OCR alone is not
+adequate evidence for a verified numeric row.

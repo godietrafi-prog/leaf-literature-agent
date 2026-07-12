@@ -284,26 +284,24 @@ AI_METHOD_EXPLANATIONS = {
             "It is transfer evidence from fish, and does not establish performance for leaf protein."
         ),
     },
-    "ptrms_ml_sensory_cluster": {
-        "study_type": "Cluster of one supervised sensory-classification study and one VOC-profiling study",
+    "deuscher2019_chocolate_ptrms": {
+        "study_type": "Original chemometric sensory-classification study",
         "workflow": (
             "Deuscher et al. measured PTR-ToF-MS volatile fingerprints for 206 dark chocolates "
             "already assigned to four sensory categories, then trained a supervised PLS-DA model "
-            "and used feature selection to find discriminating ions. The plant-milk study instead "
-            "used PTR-ToF-MS, GC-MS and PCA to compare soy, almond, oat and bovine milk VOC profiles; "
-            "it did not train a sensory prediction model."
+            "and used feature selection to find discriminating ions. Samples required two hours of "
+            "headspace equilibration; acquisition took five minutes per vial."
         ),
         "target": (
-            "For chocolate: predict a human sensory category from a rapid headspace fingerprint. "
-            "For milk: characterize which volatile patterns distinguish plant beverages from milk."
+            "Predict one of four human sensory categories from a PTR-ToF-MS headspace fingerprint."
         ),
         "result": (
-            "The chocolate model correctly classified 97% of a 62-sample test set; the milk study "
-            "detected 188 PTR mass peaks and separated beverage types by PCA."
+            "The full model correctly classified 60/62 independent test samples (96.8%). Models "
+            "using 22 and 10 selected ions classified 56/62 and 57/62, respectively."
         ),
         "project_use": (
-            "The closest precedent for mapping rapid VOC fingerprints to sensory labels. PLS-DA is "
-            "classical multivariate modeling—not deep learning—and neither study used leaf protein."
+            "A close precedent for mapping VOC fingerprints to sensory labels. PLS-DA is classical "
+            "chemometrics—not deep learning—and the study used chocolate rather than leaf protein."
         ),
     },
 }
@@ -328,6 +326,7 @@ QUANTITY_LABEL = {
     "model_r2_solubility": "Model R2 — solubility prediction",
     "model_r2_emulsifying_activity_index": "Model R2 — emulsifying activity prediction",
     "model_r2_emulsifying_capacity": "Model R2 — emulsifying capacity prediction",
+    "sensory_classification_accuracy": "Sensory classification accuracy",
     "model_r2_gel_strength": "Model R2 — gel strength prediction",
     "model_rmse_solubility": "Model RMSE — solubility prediction",
     "model_rmse_emulsifying_activity_index": "Model RMSE — emulsifying activity prediction",
