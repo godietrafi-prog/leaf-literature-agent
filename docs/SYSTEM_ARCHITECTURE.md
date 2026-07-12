@@ -101,3 +101,25 @@ digitised from plotted marks must be stored with the figure and page in
 `source_location`, marked as graph-derived, and kept `needs_human=1` until a
 person compares them with the rendered source page. Raster OCR alone is not
 adequate evidence for a verified numeric row.
+
+Implementation:
+
+- `agent/audit_pdf_evidence.py` builds the caption/page candidate queue.
+- `agent/evidence_pipeline.py tables` extracts native PDF tables to staging CSVs.
+- `agent/evidence_pipeline.py figures` renders review crops and calibration manifests.
+- `agent/evidence_pipeline.py propose` creates an unapproved numeric JSONL queue.
+- `validate` checks ranges, provenance and graph-calibration requirements.
+- `promote` writes only rows explicitly changed to `status: approved`; all other
+  proposals remain outside `numeric_results`.
+- `agent/run_evidence_pipeline.py` runs the non-destructive stages end to end.
+- `agent/review_evidence_queue.py` lists and explicitly approves/rejects staged rows.
+- `agent/digitize_plot.py` maps manual pixel points or a colour trace through
+  linear/log axis calibration and emits unapproved graph-derived rows.
+
+Example single-paper pilot:
+
+```bash
+python3 agent/run_evidence_pipeline.py --paper-id corvino2025_plant_milk_ptrms
+python3 agent/evidence_pipeline.py validate
+python3 agent/evidence_pipeline.py promote --dry-run
+```

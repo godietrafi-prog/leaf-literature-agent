@@ -7,6 +7,7 @@ db/bedrock_cache.db
 
 # Text/PDF caches can be rebuilt and are not required by the deployed dashboard.
 db/pdf_text_cache/
+db/evidence_staging/
 *.pdf
 
 # Local Streamlit/runtime files.
