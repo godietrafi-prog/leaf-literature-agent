@@ -165,6 +165,9 @@ T = {'title': 'Leaf Literature Agent',
  'ai_no_values': 'No numeric results are currently stored for this paper.',
  'ai_doi': 'Open DOI',
  'ai_scholar': 'Search title in Google Scholar',
+ 'ai_pick': 'Choose a paper to inspect in detail',
+ 'ai_open_n': 'The index stays lightweight; full findings and extracted values load only for '
+              'the selected paper.',
  'no_rows': 'No papers match these filters.',
  'cats_h': 'Topic coverage',
  'cats_n': 'The controlled vocabulary that makes the corpus queryable.',
@@ -743,16 +746,47 @@ with tab_ai:
     other = papers[papers.analysis.map(lambda a: any(x in a for x in ("DOE_RSM", "proteomics"))) &
                    ~papers.paper_id.isin(core.paper_id)]
 
+    def ai_index(frame):
+        """Compact index only; rendering every paper's full extraction overloads Cloud."""
+        rows = []
+        for _, paper in frame.sort_values(["year", "title"], ascending=[False, True]).iterrows():
+            doi = clean_text(paper.doi).strip()
+            title = clean_text(paper.title) or paper.paper_id
+            link = (f"https://doi.org/{doi}" if re.fullmatch(r"10\.\d{4,9}/\S+", doi, flags=re.I)
+                    else f"https://scholar.google.com/scholar?q={quote_plus(title)}")
+            rows.append({
+                "paper_id": paper.paper_id,
+                "year": paper.year,
+                "title": title,
+                "approach": ", ".join(TECH_LABEL.get(x, x) for x in paper.analysis),
+                "system": clean_text(paper.system),
+                "paper link": link,
+            })
+        st.dataframe(pd.DataFrame(rows), width="stretch", hide_index=True,
+                     column_config={"paper link": st.column_config.LinkColumn(
+                         "paper link", display_text="Open ↗")})
+
     st.markdown(f"### {t['ai_core']}")
     st.markdown(f'<p class="llead">{t["ai_core_n"]}</p>', unsafe_allow_html=True)
-    for _, p in core.sort_values("paper_id").iterrows():
-        ai_card(p)
+    ai_index(core)
 
     if len(other):
         st.markdown(f"### {t['ai_other']}")
         st.markdown(f'<p class="llead">{t["ai_other_n"]}</p>', unsafe_allow_html=True)
-        for _, p in other.sort_values("paper_id").iterrows():
-            ai_card(p)
+        ai_index(other)
+
+    all_ai = pd.concat([core, other]).drop_duplicates("paper_id").sort_values("paper_id")
+    st.markdown(f"### {t['open']}")
+    st.caption(t["ai_open_n"])
+    label_to_id = {
+        f"{clean_text(row.title) or row.paper_id} ({row.year_str or 'year unknown'}) · {row.paper_id}":
+            row.paper_id
+        for _, row in all_ai.iterrows()
+    }
+    selected_label = st.selectbox(t["ai_pick"], list(label_to_id), key="ai_paper_detail")
+    if selected_label:
+        selected_ai = label_to_id[selected_label]
+        ai_card(all_ai[all_ai.paper_id == selected_ai].iloc[0])
 
 
 with tab_cats:
