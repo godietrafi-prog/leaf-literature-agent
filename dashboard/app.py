@@ -1215,14 +1215,28 @@ with tab_verify:
                 pdf_base[k] = os.path.basename(v)
     scope = st.radio(t["ver_scope"], [t["ver_flagged"], t["ver_all"]], horizontal=True)
     vdf = numeric.copy()
-    vdf["verified"] = vdf["verified"].fillna(0).astype(int) if "verified" in vdf.columns else 0
+    # A Streamlit Cloud worker can retain a cached DataFrame created before the
+    # verification-column migration.  Align the frame explicitly instead of
+    # assuming that every DB/cache version already has the newest columns.
+    verification_defaults = {
+        "result_id": pd.NA, "paper_id": pd.NA, "quantity": pd.NA,
+        "value": pd.NA, "unit": pd.NA, "provenance": "seed",
+        "needs_human": 0, "verified": 0, "verified_value": pd.NA,
+        "verified_by": pd.NA, "confidence": pd.NA,
+        "verified_note": pd.NA, "source_location": pd.NA,
+    }
+    for col, default in verification_defaults.items():
+        if col not in vdf.columns:
+            vdf[col] = default
+    vdf["needs_human"] = pd.to_numeric(vdf["needs_human"], errors="coerce").fillna(0).astype(int)
+    vdf["verified"] = pd.to_numeric(vdf["verified"], errors="coerce").fillna(0).astype(int)
     if scope == t["ver_flagged"]:
         vdf = vdf[(vdf.needs_human == 1) & (vdf.verified == 0)]
     vdf["pdf"] = vdf.paper_id.map(pdf_base).fillna("— (no local PDF)")
     vcols = ["result_id", "paper_id", "pdf", "quantity", "value", "unit", "provenance",
              "needs_human", "verified", "verified_value", "verified_by", "confidence",
              "verified_note", "source_location"]
-    vdf = vdf[vcols].copy()
+    vdf = vdf.reindex(columns=vcols).copy()
     vdf["verified"] = vdf["verified"].astype(bool)
     if len(vdf) == 0:
         st.success(t["ver_none"])
