@@ -69,6 +69,15 @@ def load_local_env() -> None:
 load_local_env()
 
 SEARCH_QUERIES = {
+    "lox_leaf_protein_sensory": [
+        'lipoxygenase "leaf protein" off-flavor',
+        'lipoxygenase "leaf protein concentrate" volatile OR aroma OR hexanal',
+        'alfalfa "leaf protein concentrate" flavor OR off-flavor',
+        "lipoxygenase blanching leaf protein aroma sensory",
+        '"green leaf volatiles" leaf protein extraction',
+        "RuBisCO isolate flavor volatile lipoxygenase",
+        "carrot leaf juice flavor Nawaz 2024",
+    ],
     "lox_sensory": [
         "leaf protein extraction lipoxygenase off flavor",
         "leaf protein extraction off odor chlorophyll",

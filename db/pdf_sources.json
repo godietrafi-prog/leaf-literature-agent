@@ -30,20 +30,63 @@
   "search_2026_j_crfs_2026_101455": "../Leaf_Protein_Extraction/literature/pdfs_provided_by_user/main.pdf",
   "deuscher2019_chocolate_ptrms": "../Leaf_Protein_Extraction/literature/pdfs_provided_by_user/Deuscher_2019_PTR-ToF-MS_dark_chocolate.pdf",
   "deuscher2019_chocolate_ptrms__si": "../Leaf_Protein_Extraction/literature/pdfs_provided_by_user/Deuscher_2019_PTR-ToF-MS_dark_chocolate_SI.pdf",
-  "corvino2025_plant_milk_ptrms": "../Leaf_Protein_Extraction/literature/pdfs_provided_by_user/Corvino_2025_PTR-ToF-MS_plant_milks.pdf"
-  ,"digital_twin_food_processing_cluster": "../Leaf_Protein_Extraction/literature/pdfs_provided_by_user/1-s2.0-S0260877425004534-main.pdf"
-  ,"enose_ml_offflavor_cluster": "../Leaf_Protein_Extraction/literature/pdfs_provided_by_user/FULLTEXT02.pdf"
-  ,"furia2025": "../Leaf_Protein_Extraction/literature/pdfs_provided_by_user/Innovative approaches in leaf protein extraction  advancements  challenges  and applications in sustainable food formulation and desi.pdf"
-  ,"offflavor_mechanism_cluster": "../Leaf_Protein_Extraction/literature/pdfs_provided_by_user/Sustainable Food Proteins - 2024 - Vatansever - Plant protein flavor chemistry fundamentals and techniques to mitigate.pdf"
-  ,"alfalfa_polyphenol_uf": "../Leaf_Protein_Extraction/literature/pdfs_provided_by_user/SS-100102349.pdf"
-  ,"nettle_foods2024": "../Leaf_Protein_Extraction/literature/pdfs_provided_by_user/Nettle_extraction_chlorophyll_2024.pdf"
-  ,"nettle_pef2023": "../Leaf_Protein_Extraction/literature/pdfs_provided_by_user/Nettle_PEF_2023.pdf"
-  ,"duckweed_acs2021": "../Leaf_Protein_Extraction/literature/pdfs_provided_by_user/Duckweed_protein_concentrate_2021.pdf"
-  ,"tenorio2016": "../Leaf_Protein_Extraction/literature/pdfs_provided_by_user/Tenorio_green_leaf_protein_recovery_2016.pdf"
-  ,"cassava_scielo": "../Leaf_Protein_Extraction/literature/pdfs_provided_by_user/Cassava_extraction_methods_2013.pdf"
-  ,"carrot_greenleaves_pmc": "../Leaf_Protein_Extraction/literature/pdfs_provided_by_user/Carrot_greenleaf_fractionation_2021.pdf"
-  ,"sugarbeet_proteomics_pmc": "../Leaf_Protein_Extraction/literature/pdfs_provided_by_user/Sugarbeet_proteomics_2023.pdf"
-  ,"radish_amylase2022": "../Leaf_Protein_Extraction/literature/pdfs_provided_by_user/Radish_alpha_amylase_2022.pdf"
-  ,"carrot_composition_baseline": "../Leaf_Protein_Extraction/literature/pdfs_provided_by_user/Carrot_leaf_composition_Bardakci_2024.pdf"
-  ,"_partial_rubisco_patent_WO2020148704A1": "../Leaf_Protein_Extraction/literature/pdfs_provided_by_user/Rubisco_patent_partial_WO2020148704A1.pdf"
+  "corvino2025_plant_milk_ptrms": "../Leaf_Protein_Extraction/literature/pdfs_provided_by_user/Corvino_2025_PTR-ToF-MS_plant_milks.pdf",
+  "digital_twin_food_processing_cluster": "../Leaf_Protein_Extraction/literature/pdfs_provided_by_user/1-s2.0-S0260877425004534-main.pdf",
+  "enose_ml_offflavor_cluster": "../Leaf_Protein_Extraction/literature/pdfs_provided_by_user/FULLTEXT02.pdf",
+  "furia2025": "../Leaf_Protein_Extraction/literature/pdfs_provided_by_user/Innovative approaches in leaf protein extraction  advancements  challenges  and applications in sustainable food formulation and desi.pdf",
+  "offflavor_mechanism_cluster": "../Leaf_Protein_Extraction/literature/pdfs_provided_by_user/Sustainable Food Proteins - 2024 - Vatansever - Plant protein flavor chemistry fundamentals and techniques to mitigate.pdf",
+  "alfalfa_polyphenol_uf": "../Leaf_Protein_Extraction/literature/pdfs_provided_by_user/SS-100102349.pdf",
+  "nettle_foods2024": "../Leaf_Protein_Extraction/literature/pdfs_provided_by_user/Nettle_extraction_chlorophyll_2024.pdf",
+  "nettle_pef2023": "../Leaf_Protein_Extraction/literature/pdfs_provided_by_user/Nettle_PEF_2023.pdf",
+  "duckweed_acs2021": "../Leaf_Protein_Extraction/literature/pdfs_provided_by_user/Duckweed_protein_concentrate_2021.pdf",
+  "tenorio2016": "../Leaf_Protein_Extraction/literature/pdfs_provided_by_user/Tenorio_green_leaf_protein_recovery_2016.pdf",
+  "cassava_scielo": "../Leaf_Protein_Extraction/literature/pdfs_provided_by_user/Cassava_extraction_methods_2013.pdf",
+  "carrot_greenleaves_pmc": "../Leaf_Protein_Extraction/literature/pdfs_provided_by_user/Carrot_greenleaf_fractionation_2021.pdf",
+  "sugarbeet_proteomics_pmc": "../Leaf_Protein_Extraction/literature/pdfs_provided_by_user/Sugarbeet_proteomics_2023.pdf",
+  "radish_amylase2022": "../Leaf_Protein_Extraction/literature/pdfs_provided_by_user/Radish_alpha_amylase_2022.pdf",
+  "carrot_composition_baseline": "../Leaf_Protein_Extraction/literature/pdfs_provided_by_user/Carrot_leaf_composition_Bardakci_2024.pdf",
+  "_partial_rubisco_patent_WO2020148704A1": "../Leaf_Protein_Extraction/literature/pdfs_provided_by_user/Rubisco_patent_partial_WO2020148704A1.pdf",
+  "search_2026_pdf": "../Leaf_Protein_Extraction/literature/pdfs_provided_by_user/search_2026_pdf The addition of Moringa leaf flour.pdf",
+  "search_2026_202622301007": "../Leaf_Protein_Extraction/literature/pdfs_provided_by_user/search_2026_202622301007 The addition of Moringa leaf flour i Moringa oliefera i to anchovy nuggets i Stolephorus i sp. as an alternative nu.pdf",
+  "search_2026_1_jgipas_2026_10_1_19914": "../Leaf_Protein_Extraction/literature/pdfs_provided_by_user/search_2026_1_jgipas_2026_10_1_19914 FORMULATION OPTIMIZATION OF EDAMAME PASTE AND MORINGA LEAF INCORPORATION IN MODIFIED CASSAVA FLOUR NOOD.pdf",
+  "search_2026_012042": "../Leaf_Protein_Extraction/literature/pdfs_provided_by_user/search_2026_012042 Formulation and evaluation of moringa leaf i Moringa oleifera i cilok with catfish meat i Clarias gariepinus i fortificat.pdf",
+  "search_2025_s40538_025_00784_0": "../Leaf_Protein_Extraction/literature/pdfs_provided_by_user/search_2025_s40538_025_00784_0 Molecular mechanism study on the contribution of open-fire flue-curing technology to tobacco leaf aroma.pdf",
+  "search_2025_jestm_v5i2_346": "../Leaf_Protein_Extraction/literature/pdfs_provided_by_user/search_2025_jestm_v5i2_346 The Effectiveness of Long-Time Blanching on The Quality of Avocado Leaf Herbal Tea Added with Cinnamon Powder.pdf",
+  "search_2025_jpi_v13i03_24606": "../Leaf_Protein_Extraction/literature/pdfs_provided_by_user/search_2025_jpi_v13i03_24606 Sensory Characteristics and Lactic Acid Content of Cassava Leaf Fermentation Using Microbial-Nutrient.pdf",
+  "search_2025_s13197_025_06303_1": "../Leaf_Protein_Extraction/literature/pdfs_provided_by_user/search_2025_s13197_025_06303_1 The effect of different pre-treatments on sensory characteristics of unformulated pulse-based beverages.pdf",
+  "search_2026_2026_05_29_725965": "../Leaf_Protein_Extraction/literature/pdfs_provided_by_user/search_2026_2026_05_29_725965 Sequential multimodal sensory integration drives foraging decisions in leaf-cutting ants Volatiles contact cue.pdf",
+  "search_2024_s41538_024_00292_9": "../Leaf_Protein_Extraction/literature/pdfs_provided_by_user/search_2024_s41538_024_00292_9 Advancements in plant based meat analogs enhancing sensory and nutritional attributes.pdf",
+  "search_2024_j_fufo_2024_100370": "../Leaf_Protein_Extraction/literature/pdfs_provided_by_user/search_2024_j_fufo_2024_100370 Sensory quality of emulsions prepared with the seaweed Ulva spp. or a derived protein ingredient.pdf",
+  "search_2023_fpls_2022_1022379": "../Leaf_Protein_Extraction/literature/pdfs_provided_by_user/search_2023_fpls_2022_1022379 The influence of light microclimate on the lipid profile and associated transcripts of photosynthetically acti.pdf",
+  "search_2025_j_ijbiomac_2025_149984": "../Leaf_Protein_Extraction/literature/pdfs_provided_by_user/1-s2.0-S0141813025105412-main.pdf",
+  "search_2023_j_foodchem_2023_137924": "../Leaf_Protein_Extraction/literature/pdfs_provided_by_user/1-s2.0-S0308814623025426-main.pdf",
+  "search_2025_j_foodchem_2025_146333": "../Leaf_Protein_Extraction/literature/pdfs_provided_by_user/1-s2.0-S030881462503585X-main.pdf",
+  "search_2023_j_plaphy_2023_108271": "../Leaf_Protein_Extraction/literature/pdfs_provided_by_user/1-s2.0-S0981942823007829-main.pdf",
+  "search_2026_j_spc_2026_02_009": "../Leaf_Protein_Extraction/literature/pdfs_provided_by_user/1-s2.0-S2352550926000266-main.pdf",
+  "search_2025_1541_4337_70265": "../Leaf_Protein_Extraction/literature/pdfs_provided_by_user/Comp Rev Food Sci Food Safe - 2025 - Wanniarachchi - What Makes Lupins Less Palatable to Consumers  Can the Sensory Quality.pdf",
+  "search_2025_1541_4337_70218": "../Leaf_Protein_Extraction/literature/pdfs_provided_by_user/Comp Rev Food Sci Food Safe - 2025 - Zolqadri - A Comprehensive Review of Cowpea Proteins  Chemistry  Extraction.pdf",
+  "search_2025_jand_v5i1_363": "../Leaf_Protein_Extraction/literature/pdfs_provided_by_user/Effect_of_Adding_Moringa_Leaf_Flour_on_the_Sensory.pdf",
+  "search_2025_fsn3_70615": "../Leaf_Protein_Extraction/literature/pdfs_provided_by_user/Food Science   Nutrition - 2025 - Öncel - Valorization of Avocado Leaf as a By‐Product of the Avocado Fruit  Nutritional.pdf",
+  "search_2026_fsn3_71533": "../Leaf_Protein_Extraction/literature/pdfs_provided_by_user/Food Science   Nutrition - 2026 - Abebe - Climate‐Smart Bread With Cauliflower Leaf Powder  Enhancing Nutrition and.pdf",
+  "search_2026_rmt_32952899": "../Leaf_Protein_Extraction/literature/pdfs_provided_by_user/Furia.pdf",
+  "search_2025_9418554": "../Leaf_Protein_Extraction/literature/pdfs_provided_by_user/Journal of Food Quality - 2025 - Tanyitiku - Technofunctional Properties of Stinging Nettle  Urtica dioica L   Leaf Flour.pdf",
+  "search_2023_1750_3841_16837": "../Leaf_Protein_Extraction/literature/pdfs_provided_by_user/Journal of Food Science - 2023 - Anbarasan - Pulsed electric field treatment of soymilk  Impact on Kunitz trypsin inhibitor.pdf",
+  "search_2025_1750_3841_70563": "../Leaf_Protein_Extraction/literature/pdfs_provided_by_user/Journal of Food Science - 2025 - Acar - Protein Extraction From Agricultural Waste  Effects of the Precipitation Method on.pdf",
+  "search_2025_1750_3841_70724": "../Leaf_Protein_Extraction/literature/pdfs_provided_by_user/Journal of Food Science - 2025 - Goertzen - Investigation of Flavor and Functional Properties of Diverse Yellow Pea.pdf",
+  "search_2026_jnsr_v4i1_407": "../Leaf_Protein_Extraction/literature/pdfs_provided_by_user/Standardizing+Recipe+for+Mint+Flavored+Grape+Nectar.pdf",
+  "search_2017_c7ra09895b": "../Leaf_Protein_Extraction/literature/pdfs_provided_by_user/c7ra09895b.pdf",
+  "search_2025_d4ra08544b": "../Leaf_Protein_Extraction/literature/pdfs_provided_by_user/d4ra08544b.pdf",
+  "search_2024_foods13162608": "../Leaf_Protein_Extraction/literature/pdfs_provided_by_user/foods-13-02608.pdf",
+  "search_2024_foods13213423": "../Leaf_Protein_Extraction/literature/pdfs_provided_by_user/foods-13-03423.pdf",
+  "search_2024_foods13223695": "../Leaf_Protein_Extraction/literature/pdfs_provided_by_user/foods-13-03695.pdf",
+  "search_2025_foods14152602": "../Leaf_Protein_Extraction/literature/pdfs_provided_by_user/foods-14-02602-v2.pdf",
+  "search_2025_foods14223898": "../Leaf_Protein_Extraction/literature/pdfs_provided_by_user/foods-14-03898.pdf",
+  "search_2026_foods15050885": "../Leaf_Protein_Extraction/literature/pdfs_provided_by_user/foods-15-00885.pdf",
+  "search_2025_j_fochx_2025_103181": "../Leaf_Protein_Extraction/literature/pdfs_provided_by_user/main (2).pdf",
+  "search_2023_molecules28072966": "../Leaf_Protein_Extraction/literature/pdfs_provided_by_user/molecules-28-02966.pdf",
+  "search_2024_molecules29174027": "../Leaf_Protein_Extraction/literature/pdfs_provided_by_user/molecules-29-04027-v3.pdf",
+  "search_2026_plants15111639": "../Leaf_Protein_Extraction/literature/pdfs_provided_by_user/plants-15-01639-v2.pdf",
+  "search_2016_pnf_2016_21_4_338": "../Leaf_Protein_Extraction/literature/pdfs_provided_by_user/pnfs-21-338.pdf",
+  "search_2026_uhag282": "../Leaf_Protein_Extraction/literature/pdfs_provided_by_user/uhag282.pdf",
+  "search_2025_jasem_v29i7_13": "../Leaf_Protein_Extraction/literature/pdfs_provided_by_user/ajol-file-journals_90_articles_301778_6886397ec52ba.pdf"
 }
