@@ -1150,6 +1150,10 @@ with tab_knowledge:
         "Planning design, not an approved laboratory SOP. Final settings and run order require "
         "PI approval, safety review, and confirmation of analytical capacity."
     )
+    st.info(
+        "Aroma remains primary. LC-MS phenolic and chlorophyll-related profiles, plus "
+        "bitterness and astringency, are secondary exploratory outcomes."
+    )
     doe_runs_path = os.path.join(DOE_ASSET_DIR, "initial_doe_20_run_matrix.csv")
     doe_fields_path = os.path.join(DOE_ASSET_DIR, "initial_doe_data_dictionary.csv")
     doe_pdf_path = os.path.join(DOE_ASSET_DIR, "INITIAL_DOE_PLANNING_PAPER.pdf")
@@ -1166,8 +1170,8 @@ with tab_knowledge:
             ("1", "Material", "Leaf lot, storage, dry matter and starting protein"),
             ("2", "Treatment", "Air, pH 4, cold, N2 or blanch/LOX-off"),
             ("3", "Rapid state", "DGMA kinetics and PTR-MS when available"),
-            ("4", "Ground truth", "GC-MS C6 aldehydes, OAV and selected sensory"),
-            ("5", "Constraints", "Protein recovery, color, cost and feasibility"),
+            ("4", "Ground truth", "GC-MS C6 plus LC-MS phenolics and pigments"),
+            ("5", "Constraints", "Protein, color, sensory, cost and feasibility"),
         ]
         workflow_html = '<div class="doe-flow">' + "".join(
             f'<div class="doe-step"><span>{number}</span><b>{title}</b><small>{body}</small></div>'

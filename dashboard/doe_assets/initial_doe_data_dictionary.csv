@@ -40,7 +40,12 @@ Outcomes,color_L,CIE lightness,CIE L*,required
 Outcomes,color_a,CIE red-green coordinate,CIE a*,required
 Outcomes,color_b,CIE yellow-blue coordinate,CIE b*,required
 Outcomes,chlorophyll_total,Total chlorophyll,validated assay unit,selected subset
+Outcomes,total_phenolics,Total phenolic content,validated assay unit,selected subset
+Outcomes,phenolic_profile_LCMS,Individual phenolic acids and flavonoids by LC-MS,validated concentration basis,selected subset
+Outcomes,chlorophyll_related_profile_LCMS,Chlorophyll-related compounds and degradation products by LC-MS,validated concentration basis,selected subset
 Outcomes,sensory_offodor_score,Calibrated off-odor score,prespecified scale,selected subset
+Outcomes,sensory_bitterness_score,Calibrated bitterness score,prespecified scale,selected subset
+Outcomes,sensory_astringency_score,Calibrated astringency score,prespecified scale,selected subset
 QC and feasibility,instrument_batch,Analytical batch identifier,text,record actual
 QC and feasibility,qc_flag,"PASS, WARN, or FAIL",category,PASS
 QC and feasibility,lod_state,"Measured, below LOQ, or below LOD",category,Measured
