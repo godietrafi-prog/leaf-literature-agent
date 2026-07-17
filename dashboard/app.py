@@ -1152,7 +1152,12 @@ with tab_knowledge:
     )
     st.info(
         "Aroma remains primary. LC-MS phenolic and chlorophyll-related profiles, plus "
-        "bitterness and astringency, are secondary exploratory outcomes."
+        "bitterness and astringency, are secondary exploratory outcomes. GC-MS is required "
+        "at T2 for all treatments to capture lipid-derived and thermally generated volatiles."
+    )
+    st.caption(
+        "Food-compatible reductants or antioxidants are intentionally reserved for the broader "
+        "optimization DOE; this first set isolates physical, thermal, and oxygen-related suppression."
     )
     doe_runs_path = os.path.join(DOE_ASSET_DIR, "initial_doe_20_run_matrix.csv")
     doe_fields_path = os.path.join(DOE_ASSET_DIR, "initial_doe_data_dictionary.csv")

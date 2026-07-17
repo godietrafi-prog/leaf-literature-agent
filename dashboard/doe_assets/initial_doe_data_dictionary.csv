@@ -34,6 +34,7 @@ Rapid sensing,turbidity,Raw turbidity response if available,instrument/raw unit,
 Outcomes,total_C6_aldehydes_T0,Primary GC-MS endpoint,validated concentration basis,required
 Outcomes,hexanal_T0,Individual C6 aldehyde,validated concentration basis,required
 Outcomes,OAV_index_T0,Prespecified OAV-weighted index,index,secondary
+Outcomes,thermal_volatiles_T2,"Thermally generated volatiles, including annotated pyrazines, in dried product",validated concentration basis,secondary/exploratory; required measurement
 Outcomes,protein_recovery_pct,Recovered protein relative to starting protein,%,critical constraint
 Outcomes,protein_content_pct_DM,Final product protein content,% DM,critical constraint
 Outcomes,color_L,CIE lightness,CIE L*,required
