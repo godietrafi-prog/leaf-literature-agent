@@ -20,6 +20,10 @@ Opens at http://localhost:8501. Tabs: **Overview** (cross-study purity/yield), *
 analogous systems, each card stating why it transfers to leaf-protein purification), **Topic
 coverage**. Sidebar includes a *Refresh from DB* button.
 
+The **Knowledge / DOE** tab also contains the proposed first 20-preparation wet-lab
+design, its visual workflow, minimum data dictionary, and downloadable PDF, Excel,
+and CSV planning files. These materials are planning outputs and are not an approved SOP.
+
 ## Add new PDFs without command-line work
 Drop new article PDFs into:
 

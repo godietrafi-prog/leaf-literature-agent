@@ -29,6 +29,7 @@ import pandas as pd
 import streamlit as st
 
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "db", "leaf_lit.db")
+DOE_ASSET_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "doe_assets")
 # Temporary project decision: include every extracted row in downstream
 # harmonized/analysis exports while the formal human audit is pending. This
 # labels the assumption; it does not falsify numeric_results.verified.
@@ -1143,6 +1144,77 @@ with tab_exports:
 with tab_knowledge:
     st.markdown(f"### {t['knowledge_h']}")
     st.markdown(f'<p class="llead">{t["knowledge_n"]}</p>', unsafe_allow_html=True)
+
+    st.markdown("#### Proposed first wet-lab DOE")
+    st.warning(
+        "Planning design, not an approved laboratory SOP. Final settings and run order require "
+        "PI approval, safety review, and confirmation of analytical capacity."
+    )
+    doe_runs_path = os.path.join(DOE_ASSET_DIR, "initial_doe_20_run_matrix.csv")
+    doe_fields_path = os.path.join(DOE_ASSET_DIR, "initial_doe_data_dictionary.csv")
+    doe_figure_path = os.path.join(DOE_ASSET_DIR, "initial_doe_workflow.png")
+    doe_pdf_path = os.path.join(DOE_ASSET_DIR, "INITIAL_DOE_PLANNING_PAPER.pdf")
+    doe_book_path = os.path.join(DOE_ASSET_DIR, "initial_doe_workbook.xlsx")
+    if os.path.exists(doe_runs_path):
+        doe_runs = pd.read_csv(doe_runs_path)
+        dc = st.columns(4)
+        dc[0].metric("Preparations", len(doe_runs))
+        dc[1].metric("Biological lots", doe_runs.block_leaf_lot.nunique())
+        dc[2].metric("Conditions", doe_runs.treatment_code.nunique())
+        dc[3].metric("Primary endpoint", "T0 C6 aldehydes")
+        if os.path.exists(doe_figure_path):
+            st.image(doe_figure_path, width="stretch")
+        selected_doe = st.multiselect(
+            "Show mechanistic conditions",
+            doe_runs.treatment.drop_duplicates().tolist(),
+            default=doe_runs.treatment.drop_duplicates().tolist(),
+            key="shared_first_doe_treatments",
+        )
+        doe_view = doe_runs[doe_runs.treatment.isin(selected_doe)]
+        st.dataframe(doe_view, width="stretch", hide_index=True)
+        doe_chart = (
+            alt.Chart(doe_view)
+            .mark_circle(size=150)
+            .encode(
+                x=alt.X("within_block_order:O", title="Position within block"),
+                y=alt.Y("block_leaf_lot:N", title="Biological block"),
+                color=alt.Color("treatment:N", title="Condition"),
+                tooltip=["run_id", "treatment", "target_pH", "target_temperature_C", "oxygen_condition"],
+            )
+            .properties(height=260, title="Condition placement within biological blocks")
+        )
+        st.altair_chart(doe_chart, width="stretch")
+        dd = st.columns(3)
+        dd[0].download_button(
+            "Download run matrix CSV", doe_runs.to_csv(index=False).encode("utf-8"),
+            "initial_doe_20_run_matrix.csv", "text/csv", width="stretch",
+        )
+        if os.path.exists(doe_book_path):
+            with open(doe_book_path, "rb") as fh:
+                dd[1].download_button(
+                    "Download editable workbook", fh.read(), "initial_doe_workbook.xlsx",
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", width="stretch",
+                )
+        if os.path.exists(doe_pdf_path):
+            with open(doe_pdf_path, "rb") as fh:
+                dd[2].download_button(
+                    "Download planning paper PDF", fh.read(), "INITIAL_DOE_PLANNING_PAPER.pdf",
+                    "application/pdf", width="stretch",
+                )
+        if os.path.exists(doe_fields_path):
+            with st.expander("Minimum data dictionary"):
+                doe_fields = pd.read_csv(doe_fields_path)
+                field_group = st.selectbox(
+                    "Field group", ["All"] + doe_fields.group.drop_duplicates().tolist(),
+                    key="shared_doe_field_group",
+                )
+                if field_group != "All":
+                    doe_fields = doe_fields[doe_fields.group == field_group]
+                st.dataframe(doe_fields, width="stretch", hide_index=True)
+    else:
+        st.info("The first wet-lab DOE package has not been added to this deployment yet.")
+
+    st.divider()
     claims_x, candidates_x = knowledge_frames(mtime)
     if claims_x.empty:
         st.info("Knowledge extraction has not been built yet.")

@@ -1,0 +1,50 @@
+group,field,definition,unit_or_type,requirement_or_example
+Identity,preparation_id,Stable preparation identifier,text,DOE-001
+Identity,biological_lot_id,Independent leaf lot and blocking unit,text,Lot 1
+Identity,sample_id,Stage-specific sample identifier,text,DOE-001-T0
+Identity,parent_sample_id,Parent fraction or preparation,text,DOE-001
+Identity,operator_id,Operator code,text,OP01
+Identity,planned_run_order,Planned order within block,integer,1
+Identity,actual_run_order,Actual execution order,integer,1
+Raw material,cultivar,Carrot cultivar,text,record actual
+Raw material,source,"Supplier, field, or harvest location",text,record actual
+Raw material,harvest_to_processing_h,Elapsed time from harvest,hours,record actual
+Raw material,storage_temperature_C,Pre-processing storage temperature,deg C,4
+Raw material,starting_wet_mass_g,Wet leaf mass entering process,g,record actual
+Raw material,starting_dry_matter_pct,Starting dry matter,%,record actual
+Raw material,starting_protein_pct_DM,Protein on dry-matter basis,% DM,record actual
+Raw material,nitrogen_conversion_factor,Factor used for protein calculation,ratio,record actual
+Process,target_pH,Commanded pH,pH,4.0 or native
+Process,actual_pH,Measured pH after adjustment,pH,record actual
+Process,target_temperature_C,Commanded treatment temperature,deg C,"4, 25, or 85"
+Process,actual_temperature_C,Measured sample temperature,deg C,record actual
+Process,oxygen_condition,Air or controlled N2 environment,category,Air or N2
+Process,blanch_duration_s,Actual blanch exposure,s,TBD
+Process,actual_core_temperature_C,Verified core temperature,deg C,record actual
+Process,leaf_liquid_ratio,Leaf mass to liquid volume,ratio,"TBD, fixed"
+Process,disruption_speed,Device-specific disruption setting,device unit,"TBD, fixed"
+Process,disruption_duration_s,Disruption duration,s,"TBD, fixed"
+Process,time_from_disruption_s,Actual sampling clock,s,record actual
+Rapid sensing,dissolved_O2,Raw DGMA dissolved oxygen,instrument/raw unit,time series
+Rapid sensing,dissolved_CO2,Raw DGMA dissolved carbon dioxide,instrument/raw unit,time series
+Rapid sensing,K,Raw DGMA potassium response,instrument/raw unit,time series
+Rapid sensing,Ca,Raw DGMA calcium response,instrument/raw unit,time series
+Rapid sensing,pH_DGMA,Raw DGMA pH,pH,time series
+Rapid sensing,turbidity,Raw turbidity response if available,instrument/raw unit,time series
+Outcomes,total_C6_aldehydes_T0,Primary GC-MS endpoint,validated concentration basis,required
+Outcomes,hexanal_T0,Individual C6 aldehyde,validated concentration basis,required
+Outcomes,OAV_index_T0,Prespecified OAV-weighted index,index,secondary
+Outcomes,protein_recovery_pct,Recovered protein relative to starting protein,%,critical constraint
+Outcomes,protein_content_pct_DM,Final product protein content,% DM,critical constraint
+Outcomes,color_L,CIE lightness,CIE L*,required
+Outcomes,color_a,CIE red-green coordinate,CIE a*,required
+Outcomes,color_b,CIE yellow-blue coordinate,CIE b*,required
+Outcomes,chlorophyll_total,Total chlorophyll,validated assay unit,selected subset
+Outcomes,sensory_offodor_score,Calibrated off-odor score,prespecified scale,selected subset
+QC and feasibility,instrument_batch,Analytical batch identifier,text,record actual
+QC and feasibility,qc_flag,"PASS, WARN, or FAIL",category,PASS
+QC and feasibility,lod_state,"Measured, below LOQ, or below LOD",category,Measured
+QC and feasibility,energy_kWh,Measured process energy,kWh,record actual
+QC and feasibility,water_L,Water used,L,record actual
+QC and feasibility,chemical_cost_ILS,Treatment chemical cost,ILS,record actual
+QC and feasibility,labor_time_min,Hands-on labor,min,record actual
