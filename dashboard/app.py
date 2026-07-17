@@ -1152,7 +1152,6 @@ with tab_knowledge:
     )
     doe_runs_path = os.path.join(DOE_ASSET_DIR, "initial_doe_20_run_matrix.csv")
     doe_fields_path = os.path.join(DOE_ASSET_DIR, "initial_doe_data_dictionary.csv")
-    doe_figure_path = os.path.join(DOE_ASSET_DIR, "initial_doe_workflow.png")
     doe_pdf_path = os.path.join(DOE_ASSET_DIR, "INITIAL_DOE_PLANNING_PAPER.pdf")
     doe_book_path = os.path.join(DOE_ASSET_DIR, "initial_doe_workbook.xlsx")
     if os.path.exists(doe_runs_path):
@@ -1162,8 +1161,30 @@ with tab_knowledge:
         dc[1].metric("Biological lots", doe_runs.block_leaf_lot.nunique())
         dc[2].metric("Conditions", doe_runs.treatment_code.nunique())
         dc[3].metric("Primary endpoint", "T0 C6 aldehydes")
-        if os.path.exists(doe_figure_path):
-            st.image(doe_figure_path, width="stretch")
+        st.markdown("##### Experimental workflow")
+        workflow_steps = [
+            ("1", "Material", "Leaf lot, storage, dry matter and starting protein"),
+            ("2", "Treatment", "Air, pH 4, cold, N2 or blanch/LOX-off"),
+            ("3", "Rapid state", "DGMA kinetics and PTR-MS when available"),
+            ("4", "Ground truth", "GC-MS C6 aldehydes, OAV and selected sensory"),
+            ("5", "Constraints", "Protein recovery, color, cost and feasibility"),
+        ]
+        workflow_html = '<div class="doe-flow">' + "".join(
+            f'<div class="doe-step"><span>{number}</span><b>{title}</b><small>{body}</small></div>'
+            for number, title, body in workflow_steps
+        ) + "</div>"
+        st.markdown(
+            """
+            <style>
+            .doe-flow{display:grid;grid-template-columns:repeat(5,minmax(130px,1fr));gap:10px;margin:.4rem 0 1rem}
+            .doe-step{border:1px solid #8ab7a4;border-radius:12px;background:#f8fbf9;padding:14px;min-height:118px}
+            .doe-step span{display:inline-grid;place-items:center;width:28px;height:28px;border-radius:50%;background:#176b50;color:white;font-weight:700;margin-bottom:9px}
+            .doe-step b,.doe-step small{display:block}.doe-step b{color:#176b50;margin-bottom:6px}.doe-step small{line-height:1.35;color:#354a43}
+            @media(max-width:900px){.doe-flow{grid-template-columns:1fr 1fr}}@media(max-width:520px){.doe-flow{grid-template-columns:1fr}}
+            </style>
+            """ + workflow_html,
+            unsafe_allow_html=True,
+        )
         selected_doe = st.multiselect(
             "Show mechanistic conditions",
             doe_runs.treatment.drop_duplicates().tolist(),
@@ -1172,18 +1193,20 @@ with tab_knowledge:
         )
         doe_view = doe_runs[doe_runs.treatment.isin(selected_doe)]
         st.dataframe(doe_view, width="stretch", hide_index=True)
+        treatment_colors = ["#4C78A8", "#F58518", "#54A24B", "#B279A2", "#E45756"]
         doe_chart = (
             alt.Chart(doe_view)
-            .mark_circle(size=150)
+            .mark_rect(cornerRadius=6, stroke="white", strokeWidth=3)
             .encode(
                 x=alt.X("within_block_order:O", title="Position within block"),
-                y=alt.Y("block_leaf_lot:N", title="Biological block"),
-                color=alt.Color("treatment:N", title="Condition"),
+                y=alt.Y("block_leaf_lot:N", title="Biological block", sort=["Lot 1", "Lot 2", "Lot 3", "Lot 4"]),
+                color=alt.Color("treatment:N", title="Condition", scale=alt.Scale(range=treatment_colors)),
                 tooltip=["run_id", "treatment", "target_pH", "target_temperature_C", "oxygen_condition"],
             )
-            .properties(height=260, title="Condition placement within biological blocks")
+            .properties(height=300, title="Colored DOE matrix: one treatment per position in each biological block")
         )
-        st.altair_chart(doe_chart, width="stretch")
+        labels = doe_chart.mark_text(color="white", fontWeight="bold", fontSize=13).encode(text="treatment_code:N")
+        st.altair_chart(doe_chart + labels, width="stretch")
         dd = st.columns(3)
         dd[0].download_button(
             "Download run matrix CSV", doe_runs.to_csv(index=False).encode("utf-8"),
