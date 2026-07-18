@@ -613,6 +613,44 @@ with st.sidebar:
     if READ_ONLY:
         st.caption("🔒 read-only shared view")
 
+    # v2 knowledge-integration status (defensive: no-ops on a pre-v2 DB)
+    def _ki_stats(path):
+        import sqlite3
+        try:
+            c = sqlite3.connect(path)
+            have = {r[0] for r in c.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+            out = {}
+            if "canonical_entities" in have:
+                out["entities"] = c.execute("SELECT COUNT(*) FROM canonical_entities").fetchone()[0]
+                out["species"] = c.execute("SELECT COUNT(*) FROM canonical_entities WHERE entity_type='species'").fetchone()[0]
+            if "claim_number_link" in have:
+                out["linked"] = c.execute("SELECT COUNT(*) FROM claim_number_link").fetchone()[0]
+            cols = {r[1] for r in c.execute("PRAGMA table_info(numeric_results)")}
+            if "outcome_id" in cols:
+                out["mapped"] = c.execute("SELECT COUNT(*) FROM numeric_results WHERE outcome_id IS NOT NULL").fetchone()[0]
+                out["total"] = c.execute("SELECT COUNT(*) FROM numeric_results").fetchone()[0]
+            if "validation_state" in cols:
+                out["states"] = dict(c.execute("SELECT COALESCE(validation_state,'?'),COUNT(*) FROM numeric_results GROUP BY validation_state").fetchall())
+            c.close()
+            return out
+        except Exception:
+            return {}
+    _ki = _ki_stats(str(DB_PATH))
+    if _ki:
+        st.markdown("---")
+        st.caption("🧠 **Knowledge integration (v2)**")
+        if "entities" in _ki:
+            st.caption(f"canonical entities: {_ki['entities']} ({_ki.get('species', 0)} species)")
+        if "mapped" in _ki:
+            st.caption(f"quantities → ontology: {_ki['mapped']}/{_ki['total']} "
+                       f"({_ki['mapped'] / max(_ki['total'], 1):.0%})")
+        if "linked" in _ki:
+            st.caption(f"claims linked to numbers: {_ki['linked']}")
+        if "states" in _ki:
+            s = _ki["states"]
+            st.caption(f"validation: {s.get('human_verified', 0)} human · "
+                       f"{s.get('machine_verified', 0)} machine · {s.get('extracted', 0)} raw")
+
 
 # ── header ────────────────────────────────────────────────────────────────────
 st.markdown(f'<div class="eyebrow">Leaf Protein · Literature Intelligence</div>', unsafe_allow_html=True)

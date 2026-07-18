@@ -250,3 +250,76 @@ CREATE TABLE IF NOT EXISTS run_state (
     key   TEXT PRIMARY KEY,                     -- e.g. 'last_run'
     value TEXT
 );
+
+-- ==========================================================================
+-- v2 knowledge-integration layer (see Documentation/Design_Spec_v2 + MIGRATION_NOTES.md)
+-- Additive: turns "more rows" into "updated knowledge". Every table is derived
+-- from immutable raw rows and can be rebuilt deterministically; provenance kept.
+-- ==========================================================================
+
+-- Canonical scientific entities: one node per real-world species/chemical/
+-- method/quantity, so "Pisum sativum" and "Pisum sativum L." are ONE entity and
+-- cross-study grouping is honest rather than string-based. -------------------
+CREATE TABLE IF NOT EXISTS canonical_entities (
+    entity_id        INTEGER PRIMARY KEY AUTOINCREMENT,
+    entity_type      TEXT NOT NULL,      -- species / chemical / enzyme / method / quantity / outcome
+    canonical_name   TEXT NOT NULL,
+    external_ref     TEXT,               -- NCBI taxon / ChEBI / EC / free
+    ontology_ref     TEXT,               -- outcome_id when the entity maps into knowledge_outcomes
+    aliases          TEXT,               -- JSON list of observed aliases (audit trail)
+    mention_count    INTEGER DEFAULT 0,  -- how many raw rows resolve here (updated incrementally)
+    mapping_version  TEXT NOT NULL,
+    created_date     TEXT,
+    last_updated     TEXT,
+    UNIQUE(entity_type, canonical_name)
+);
+CREATE INDEX IF NOT EXISTS idx_entity_type ON canonical_entities(entity_type);
+
+-- Each raw string -> canonical entity, preserving the raw mention (immutability).
+CREATE TABLE IF NOT EXISTS entity_mentions (
+    mention_id       INTEGER PRIMARY KEY AUTOINCREMENT,
+    entity_id        INTEGER NOT NULL REFERENCES canonical_entities(entity_id) ON DELETE CASCADE,
+    source_table     TEXT NOT NULL,      -- numeric_results / knowledge_materials / evidence_claims
+    source_id        TEXT NOT NULL,      -- result_id / material_id / claim_id (as text)
+    field            TEXT NOT NULL,      -- species / method / quantity
+    raw_string       TEXT,
+    resolver         TEXT,               -- exact / alias / fuzzy / unmapped
+    match_score      REAL,
+    mapping_version  TEXT NOT NULL,
+    created_date     TEXT,
+    UNIQUE(source_table, source_id, field)
+);
+CREATE INDEX IF NOT EXISTS idx_mention_entity ON entity_mentions(entity_id);
+CREATE INDEX IF NOT EXISTS idx_mention_source ON entity_mentions(source_table, source_id);
+
+-- Bridge between the two previously-disconnected knowledge layers: the claim
+-- that asserts an effect and the numeric_results row carrying the number. ----
+CREATE TABLE IF NOT EXISTS claim_number_link (
+    link_id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    claim_id         INTEGER NOT NULL REFERENCES evidence_claims(claim_id) ON DELETE CASCADE,
+    result_id        INTEGER NOT NULL REFERENCES numeric_results(result_id) ON DELETE CASCADE,
+    match_method     TEXT,               -- value_outcome / outcome_only / value_only
+    match_score      REAL,
+    mapping_version  TEXT NOT NULL,
+    created_date     TEXT,
+    UNIQUE(claim_id, result_id)
+);
+CREATE INDEX IF NOT EXISTS idx_cnl_claim  ON claim_number_link(claim_id);
+CREATE INDEX IF NOT EXISTS idx_cnl_result ON claim_number_link(result_id);
+
+-- Per-paper incremental integration audit: what one dropped paper changed. ---
+CREATE TABLE IF NOT EXISTS integration_runs (
+    run_id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    paper_id         TEXT,
+    mode             TEXT,               -- mock / real
+    numeric_rows     INTEGER,
+    claim_rows       INTEGER,
+    entities_reused  INTEGER,
+    entities_created INTEGER,
+    claims_linked    INTEGER,
+    candidates_after INTEGER,
+    contradictions_after INTEGER,
+    status           TEXT,
+    notes            TEXT,
+    created_date     TEXT
+);

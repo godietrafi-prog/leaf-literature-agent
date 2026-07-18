@@ -211,16 +211,28 @@ def ingest_one(pdf_path: Path) -> tuple[str, int]:
     meta = infer_metadata(target, text)
     conn = sqlite3.connect(DB_PATH)
     conn.execute("PRAGMA foreign_keys = ON")
-    meta["paper_id"] = unique_paper_id(conn, meta["paper_id"], target)
-    insert_paper(conn, meta, text)
-    n_rows = store_mock_results(conn, meta["paper_id"], text)
+    # v2: dedupe by DOI/normalised title so re-dropping a paper UPDATES it instead
+    # of creating a near-duplicate row.
+    import integrate_paper
+    dup = integrate_paper.find_duplicate(conn, meta.get("doi"), meta.get("title"))
+    if dup:
+        meta["paper_id"] = dup
+        conn.execute("UPDATE papers SET last_updated=? WHERE paper_id=?", (TODAY, dup))
+    else:
+        meta["paper_id"] = unique_paper_id(conn, meta["paper_id"], target)
+        insert_paper(conn, meta, text)
     conn.execute("INSERT OR REPLACE INTO run_state (key, value) VALUES ('last_auto_ingest', ?)", (TODAY,))
     conn.commit()
     conn.close()
     update_pdf_map(meta["paper_id"], target)
-    import harmonize
-    harmonize.build()
-    return meta["paper_id"], n_rows
+    # v2: run the FULL incremental knowledge pipeline (extract -> validate -> reuse
+    # entities -> harmonize -> link -> rebuild candidate matrix), not just a mock
+    # numeric dump. Deterministic (mock) so the inbox watcher needs no Bedrock;
+    # switch to real extraction with `integrate_paper.py --pdf ... --real`.
+    import integrate_paper
+    result = integrate_paper.integrate_paper(meta["paper_id"], text=text, si_text=None,
+                                             mock=True, real=False)
+    return meta["paper_id"], result["numeric_rows"]
 
 
 def git_commit_push(message: str) -> None:

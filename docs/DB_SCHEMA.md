@@ -2,6 +2,16 @@
 
 **Engine:** SQLite recommended (single portable file in `db/leaf_lit.db`, syncs via OneDrive, no server). Migrate to Postgres only if concurrency/scale demands it.
 
+> **v2 knowledge-integration layer (2026-07-18, pending review).** Additive tables
+> `canonical_entities`, `entity_mentions`, `claim_number_link`, `integration_runs`
+> and additive columns on `numeric_results`
+> (`quantity_canonical`, `outcome_id`, `unit_canonical`, `species_entity_id`,
+> `validation_state`, `agreement_score`) and `evidence_claims`
+> (`numeric_result_id`, `outcome_entity_id`) turn "more rows" into normalized,
+> linked, validated knowledge. See `db/schema.sql`, `agent/migrations.py`, and
+> `MIGRATION_NOTES.md` for the full rationale, backward-compatibility analysis,
+> and test procedure. Nothing below is removed or repurposed by v2.
+
 ## Design principle
 Two linked tables are the heart of the whole system, exactly as the owner specified: a **`papers`** table (one row per study, with categorical sorting + summary) and a **`numeric_results`** table (many rows per study, each a single extracted number) **linked by `paper_id`**, so numbers are analyzable as data while staying traceable to their source. Everything else supports these two.
 
