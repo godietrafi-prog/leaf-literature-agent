@@ -171,6 +171,10 @@ Return JSON only. Never infer a numeric effect not explicitly stated. Every clai
 source_quote and a source_location. A direction requires an explicit comparator; otherwise use
 not_determined and comparator none_reported. Preserve treatment step order. Null any unreported
 parameter. Do not collapse sensory scores and chemical markers into one outcome.
+Record the material species as its Latin binomial when stated (e.g. "Pisum sativum", not "pea"),
+with cultivar in the cultivar field. When a paper reports the same treatment across several doses,
+times or temperatures, emit a claim per condition rather than one summary claim, so dose/order
+dependence is preserved rather than hidden as a contradiction.
 
 Allowed treatment_family values: {list(ont['treatment_families'])}
 Allowed outcome_id values: {[x['id'] for x in ont['outcomes']]}

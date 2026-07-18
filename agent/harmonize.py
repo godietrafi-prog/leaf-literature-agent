@@ -8,6 +8,9 @@ import sqlite3
 from datetime import date
 from pathlib import Path
 
+import migrations
+import ontology_match
+
 ROOT = Path(__file__).resolve().parent.parent
 DB_PATH = ROOT / "db" / "leaf_lit.db"
 SCHEMA_PATH = ROOT / "db" / "schema.sql"
@@ -32,11 +35,24 @@ QUANTITY_ONTOLOGY = {
 
 
 def ensure_schema(conn: sqlite3.Connection) -> None:
-    conn.executescript(SCHEMA_PATH.read_text(encoding="utf-8"))
+    migrations.ensure(conn)  # v2 tables + columns (also runs schema.sql)
     have = {row[1] for row in conn.execute("PRAGMA table_info(numeric_results)")}
     for name, ddl in (("verified_by", "TEXT"), ("confidence", "TEXT")):
         if name not in have:
             conn.execute(f"ALTER TABLE numeric_results ADD COLUMN {name} {ddl}")
+
+
+def write_canonical_columns(conn: sqlite3.Connection) -> None:
+    """Populate numeric_results.quantity_canonical / outcome_id / unit_canonical
+    from the deterministic ontology matcher. These columns are what let the
+    dashboard and any downstream analysis group the 1,000+ raw quantity strings
+    by the controlled outcome vocabulary."""
+    rows = conn.execute("SELECT result_id, quantity, unit FROM numeric_results").fetchall()
+    for result_id, quantity, unit in rows:
+        m = ontology_match.match_quantity(quantity)
+        conn.execute(
+            "UPDATE numeric_results SET quantity_canonical=?, outcome_id=?, unit_canonical=? WHERE result_id=?",
+            (m["quantity_canonical"], m["outcome_id"], ontology_match.canonical_unit(unit), result_id))
 
 
 def clean_unit(unit: str | None) -> str | None:
@@ -51,12 +67,24 @@ def clean_unit(unit: str | None) -> str | None:
 def harmonize_value(quantity: str, value: float | None, unit: str | None, basis: str | None):
     mapping = QUANTITY_ONTOLOGY.get(quantity)
     if not mapping:
-        q_std = re.sub(r"[^a-z0-9]+", "_", quantity.lower()).strip("_")
-        ontology = ("sensory:unmapped" if re.search(r"sensory|odor|odour|flavou?r|aroma", quantity, re.I)
-                    else "chemical:unmapped" if re.search(r"volatile|aldehyde|hexanal|content|concentration", quantity, re.I)
-                    else "process:unmapped" if re.search(r"yield|recovery|extraction|treatment", quantity, re.I)
-                    else "measurement:unmapped")
-        return q_std, value, clean_unit(unit), ontology, "identity_only", "value_std = value; unit retained", "ontology mapping pending"
+        # v2: fall back to the deterministic ontology matcher instead of a crude
+        # "*:unmapped" bucket. This connects the long tail of LLM-invented quantity
+        # names to the 28-node outcome tree, so cross-study grouping by outcome_id
+        # works even where no cross-unit conversion is claimed.
+        m = ontology_match.match_quantity(quantity)
+        q_std = m["quantity_canonical"] or re.sub(r"[^a-z0-9]+", "_", quantity.lower()).strip("_")
+        c_unit = ontology_match.canonical_unit(unit) or clean_unit(unit)
+        if m["outcome_id"]:
+            ontology = f"outcome:{m['outcome_id']}"
+            notes = f"ontology outcome mapped ({m['match_type']}); no cross-unit conversion claimed"
+        else:
+            ontology = ("sensory:unmapped" if re.search(r"sensory|odor|odour|flavou?r|aroma", quantity, re.I)
+                        else "chemical:unmapped" if re.search(r"volatile|aldehyde|hexanal|content|concentration", quantity, re.I)
+                        else "process:unmapped" if re.search(r"yield|recovery|extraction|treatment", quantity, re.I)
+                        else "measurement:unmapped")
+            notes = "ontology mapping pending"
+        status = "identity_only" if value is not None else "not_harmonizable"
+        return q_std, value, c_unit, ontology, status, "value_std = value; unit retained", notes
     quantity_std, canonical, ontology = mapping
     source_unit = clean_unit(unit)
     if value is None:
@@ -127,6 +155,7 @@ def build(db_path: Path = DB_PATH) -> None:
             (result_id, ph, temp, time, oxygen, sonication, heat, feature_status, VERSION,
              "Rule-based extraction from treatment_condition; review before ML"),
         )
+    write_canonical_columns(conn)
     conn.execute("INSERT OR REPLACE INTO run_state(key,value) VALUES('last_harmonization',?)", (TODAY,))
     conn.commit()
     conn.close()
